@@ -1,0 +1,6 @@
+# Format and lint what you staged, then typecheck the whole program.
+#
+# tsc cannot be scoped to staged files and still be right: a change in one file
+# breaks types in another, so the check is project wide or it is theatre.
+npx lint-staged
+npm run typecheck
