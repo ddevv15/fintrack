@@ -1,0 +1,22 @@
+# Generated or vendored: never reformat, the diff is noise and the source is elsewhere.
+.next/
+out/
+build/
+coverage/
+node_modules/
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo
+
+# Agent skill packages are vendored from upstream; keep them byte for byte.
+.agents/skills/
+.claude/skills/
+
+# Playwright output.
+test-results/
+playwright-report/
+
+# Workflow artifacts owned by /scope, /architect, and /check. They are prose and
+# hand aligned tables, edited surgically by those skills; reformatting them makes
+# large diffs that hide the one line that actually changed.
+docs/

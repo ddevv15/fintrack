@@ -15,7 +15,10 @@ const envSchema = z.object({
   APP_TIMEZONE: z
     .string()
     .min(1)
-    .refine(isRealTimeZone, "must be an IANA time zone name, such as America/New_York"),
+    .refine(
+      isRealTimeZone,
+      "must be an IANA time zone name, such as America/New_York",
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;
