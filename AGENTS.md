@@ -22,8 +22,11 @@ Full decision record and its reasoning: [spec 0001](docs/specs/0001-stack-and-ar
 npm install                                # Install
 npm run dev                                # Dev server on http://localhost:3000
 npm run build                              # Production build
-npx tsc --noEmit                           # Typecheck
+npm run typecheck                          # Typecheck (generates route types first)
 npm run lint                               # Lint
+npm run format                             # Format everything, or format:check to verify
+npm run test                               # Unit tests (Vitest)
+npm run test:e2e                           # Browser tests (Playwright)
 npx @insforge/cli db migrations up --all   # Apply migrations (needs `cli login` first)
 ```
 
@@ -40,13 +43,15 @@ Stored in `docs/specs/`. Format: `docs/specs/NNNN-title/index.md`. The feature s
 - Strict TypeScript, no `any`. Named exports only, except Next.js pages, layouts, and route handlers, which must stay default exports.
 - Every table holding personal data has row level security on, keyed to the signed in user id. A table with no policy is a data leak, not a to do.
 - Environment variables are declared and validated in `lib/env.ts` with Zod. Add new ones there; never read `process.env` directly.
-- Layout is by layer: `app/`, `components/`, `lib/`, `actions/`, `migrations/`. Naming: `camelCase` functions and variables, `PascalCase` components and types, `snake_case` database columns.
+- Layout is by layer: `app/`, `components/`, `lib/`, `actions/`, `migrations/`, `tests/`. Naming: `camelCase` functions and variables, `PascalCase` components and types, `snake_case` database columns.
 - Every exported function carries a short comment saying what it does and why. UI meets WCAG AA: reachable by keyboard, correct to a screen reader.
 - Tailwind is v4, not v3.4. InsForge's docs say to use 3.4 and not upgrade; spec 0001 chose v4 and v4 is installed. The spec wins.
 
 ## Tooling
 
-Chosen here, installed by `/develop tooling`: ESLint (installed) plus Prettier · a pre commit hook running lint, format, typecheck · Vitest for logic, Playwright for flows · a GitHub Actions check on push.
+All installed: ESLint plus Prettier (`eslint-config-prettier` last in the flat config, so the two never fight) · a husky pre commit hook running lint and format on staged files, then a project wide typecheck · Vitest for logic in `tests/unit/`, Playwright for flows in `tests/e2e/` · a GitHub Actions check on every push and pull request.
+
+Two things to know before you touch a config here. `npm run typecheck` runs `next typegen` first, because `LayoutProps` and friends are generated into `.next/types/` and a fresh clone has no `.next/`. And Prettier skips `docs/`, because reformatting those hand aligned tables buries the one line a skill actually changed.
 
 ## Git
 
