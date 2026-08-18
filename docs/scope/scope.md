@@ -11,7 +11,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 
 | # | Feature | Phase | Status |
 |---|---------|-------|--------|
-| 1 | Stack and architecture | Foundation | in-progress |
+| 1 | Stack and architecture | Foundation | done |
 | 2 | Coding standards and tooling | Foundation | planned |
 | 3 | Data model | Foundation | planned |
 | 4 | Design system and UI foundation | Foundation | planned |
@@ -35,11 +35,11 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 ## Foundations
 
 ### 1. Stack and architecture · Beta
-spec [0001](../specs/0001-stack-and-architecture/index.md)
+spec [0001](../specs/0001-stack-and-architecture/index.md) · code in repository root (`app/`, `lib/`, `proxy.ts`, `migrations/`)
 Decide what this app is built with, then scaffold a project that actually runs, so every later release stands on real structure rather than guesses. Your light preferences about how code should be laid out belong here too.
 **Done when:** the stack choice is written down in a spec, the scaffold boots locally, and a production build passes. (basis: nothing tooling related should run before the stack decision, so this is the one place tools get chosen)
 - [x] Decide the stack (spec): `/architect stack & architecture`
-- [ ] Scaffold from the decision: `/develop stack & architecture`
+- [x] Scaffold from the decision: `/develop stack & architecture`
 
 ### 2. Coding standards and tooling
 Capture the real conventions from the scaffolded project, then install the lint, format, and check tooling that all later code has to follow.

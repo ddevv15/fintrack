@@ -1,7 +1,7 @@
 # 0001. Build FinTrack on Next.js with InsForge as the backend
 
 **Date**: 2026-08-19
-**Status**: Proposed
+**Status**: Accepted
 
 ## Summary
 
