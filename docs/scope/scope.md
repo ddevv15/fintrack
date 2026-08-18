@@ -12,7 +12,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | # | Feature | Phase | Status |
 |---|---------|-------|--------|
 | 1 | Stack and architecture | Foundation | done |
-| 2 | Coding standards and tooling | Foundation | planned |
+| 2 | Coding standards and tooling | Foundation | in-progress |
 | 3 | Data model | Foundation | planned |
 | 4 | Design system and UI foundation | Foundation | planned |
 | 5 | Sign in and your account | Release 1 | planned |
@@ -42,10 +42,11 @@ Decide what this app is built with, then scaffold a project that actually runs, 
 - [x] Scaffold from the decision: `/develop stack & architecture`
 
 ### 2. Coding standards and tooling
+code in repository root (`eslint.config.mjs`, `.prettierrc.json`, `vitest.config.mts`, `playwright.config.ts`, `.husky/`, `.github/workflows/ci.yml`, `tests/`)
 Capture the real conventions from the scaffolded project, then install the lint, format, and check tooling that all later code has to follow.
 **Done when:** root `AGENTS.md` describes the real stack and conventions, and the lint and format commands run clean.
 - [ ] Capture conventions and tooling choices: `/audit`
-- [ ] Install the tooling: `/develop tooling`
+- [x] Install the tooling: `/develop tooling`
 
 ### 3. Data model · needs a decision · Beta
 The core things this app stores: you, your transactions, your categories, and how they connect. Money amounts and dates live here.
