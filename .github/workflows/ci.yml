@@ -19,6 +19,10 @@ env:
   NEXT_PUBLIC_INSFORGE_ANON_KEY: ci-placeholder-anon-key
   APP_CURRENCY: USD
   APP_TIMEZONE: America/New_York
+  # Whether this repository has the backend test secrets. Computed here because
+  # a step's own env block is not readable from that step's `if` condition, and
+  # the secrets context is not dependable there either.
+  HAS_BACKEND_SECRETS: ${{ secrets.INSFORGE_TEST_PASSWORD != '' }}
 
 jobs:
   check:
@@ -51,6 +55,19 @@ jobs:
       - name: Unit tests
         if: "!cancelled()"
         run: npm run test
+
+      # Talks to the real backend and signs in as two accounts, so it only runs
+      # where the secrets exist. A fork, or a repository without them, skips
+      # this step rather than failing on a missing value.
+      - name: Integration tests
+        if: "!cancelled() && env.HAS_BACKEND_SECRETS == 'true'"
+        env:
+          NEXT_PUBLIC_INSFORGE_URL: ${{ secrets.INSFORGE_URL }}
+          NEXT_PUBLIC_INSFORGE_ANON_KEY: ${{ secrets.INSFORGE_ANON_KEY }}
+          INSFORGE_TEST_EMAIL_A: ${{ secrets.INSFORGE_TEST_EMAIL_A }}
+          INSFORGE_TEST_EMAIL_B: ${{ secrets.INSFORGE_TEST_EMAIL_B }}
+          INSFORGE_TEST_PASSWORD: ${{ secrets.INSFORGE_TEST_PASSWORD }}
+        run: npm run test:integration
 
   e2e:
     name: End to end tests

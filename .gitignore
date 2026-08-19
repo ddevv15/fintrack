@@ -49,3 +49,22 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# InsForge project link. Holds the project id the CLI reads; not secret, but
+# machine specific, so it stays out of the repo.
+.insforge
+
+# Assistant specific config directories. Added by `insforge link`.
+# NOTE: .agents and .claude are deliberately NOT here. This project commits its
+# vendored agent skills (.agents/skills/, .claude/skills/) and AGENTS.md points
+# at those paths, so ignoring them would silently drop any skill added later.
+.agent
+.augment
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
