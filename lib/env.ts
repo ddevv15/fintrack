@@ -25,10 +25,21 @@ const envSchema = z.object({
   // which is what production runs. A value that is not one of these four is a
   // typo, and a typo that silently disables a route is worse than a loud stop.
   UI_GALLERY: z
-    .enum(["1", "0", "true", "false"], {
-      message: "must be 1, 0, true, or false, or be left unset",
-    })
+    .string()
     .optional()
+    // A variable set to nothing arrives as "" rather than undefined: a bare
+    // `UI_GALLERY=` line in a .env file, or an empty value in a hosting
+    // dashboard. Both plainly mean "not set", so they are normalised to that
+    // before the check below. Without this, one blank line fails the whole
+    // schema and env() throws on every route, not just the gallery.
+    .transform((value) => (value === "" ? undefined : value))
+    .pipe(
+      z
+        .enum(["1", "0", "true", "false"], {
+          message: "must be 1, 0, true, or false, or be left unset",
+        })
+        .optional(),
+    )
     .transform((value) => value === "1" || value === "true"),
 });
 

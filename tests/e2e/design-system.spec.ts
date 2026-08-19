@@ -199,13 +199,19 @@ test.describe("on a small phone", () => {
       const box = await target.boundingBox();
       if (!box) continue;
 
-      // Skip the visually hidden helpers. Tailwind v4's sr-only clips an
-      // element to 1x1 with clip-path, so measuring it says nothing; the skip
-      // link is checked at its focused size in the keyboard tests below.
-      const clipped = await target.evaluate(
-        (node) => getComputedStyle(node).clipPath !== "none",
-      );
-      if (clipped) continue;
+      const skip = await target.evaluate((node) => ({
+        // Tailwind v4's sr-only clips an element to 1x1 with clip-path, so
+        // measuring a visually hidden helper says nothing; the skip link is
+        // checked at its focused size in the keyboard tests below.
+        clipped: getComputedStyle(node).clipPath !== "none",
+        // Next's dev mode injects its own toolbar button, which is 32x32 and
+        // never ships. Counting it would fail this test on every local run
+        // while passing in CI, which tests the production build.
+        frameworkChrome:
+          node.closest("nextjs-portal") !== null ||
+          node.hasAttribute("data-nextjs-dev-tools-button"),
+      }));
+      if (skip.clipped || skip.frameworkChrome) continue;
 
       if (box.height < 44 || box.width < 44) {
         const label =

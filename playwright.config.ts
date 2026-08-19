@@ -36,8 +36,17 @@ export default defineConfig({
     // at, and it 404s without this. Set here rather than in the CI workflow so
     // the same command works locally. If you already have a dev server up
     // without it, stop that server or the gallery tests will 404.
-    // CI sets this explicitly in the workflow; locally it defaults on so the
-    // same command just works.
-    env: { UI_GALLERY: process.env.UI_GALLERY ?? "1" },
+    // CI sets UI_GALLERY explicitly in the workflow; locally it defaults on so
+    // the same command just works.
+    //
+    // The currency and zone are pinned because the gallery renders real money
+    // and real dates, and the tests assert the formatted text. Without these,
+    // `npm run test:e2e` reads whatever is in your own .env.local and fails on
+    // a currency mismatch that looks like a product bug and is not.
+    env: {
+      UI_GALLERY: process.env.UI_GALLERY ?? "1",
+      APP_CURRENCY: "USD",
+      APP_TIMEZONE: "America/New_York",
+    },
   },
 });
