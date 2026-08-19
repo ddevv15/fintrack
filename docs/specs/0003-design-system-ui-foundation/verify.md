@@ -37,6 +37,11 @@ Start the gallery first: `UI_GALLERY=1 npm run dev`, then open `/design`.
 
 ## Owed: needs a person with a screen reader
 
+> Two of these cannot be run against the gallery at all, because it is a static
+> page: a live region only announces when its content changes, and nothing here
+> changes. They are marked below and belong with the first feature that loads
+> real data. The rest can be run now.
+>
 > The feature was marked `done` on 2026-08-20 with these still outstanding.
 > That was a deliberate call, not an oversight: this is a foundation feature
 > holding no user data, and the gap is described in
@@ -47,8 +52,10 @@ Automated tooling and the accessibility tree cannot answer these. Full detail in
 [../../accessibility-pass.md](../../accessibility-pass.md).
 
 - [ ] Submit a form with an error → the message is spoken and focus does **not** move → AC-6, AC-8
+  · **partly blocked**: the gallery renders its error states at load, so you can confirm the message is read when you reach the field, but not that the live region fires on change. The change half needs a real submit, so it lands with feature 6.
 - [ ] With both a hint and an error present → the hint is read before the error → AC-6, AC-8
 - [ ] A `Skeleton` replaced by content → no stale "loading" announcement is left behind → AC-8
+  · **blocked until there is async data**: the gallery is fully static, so no Skeleton is ever replaced. Nothing in the app loads asynchronously yet. Run this with feature 6 or 7, whichever first renders a Skeleton over a real query.
 - [ ] Each of the ten category chips → announces its name, never a colour → AC-8
 - [ ] The bottom tab bar on a phone → the active tab is announced as current → AC-8
 - [x] The ten swatches under deuteranopia and protanopia simulation → still tellable apart → AC-2, AC-8 · measured 2026-08-20, results in accessibility-pass.md: the palette collapses further than the spec assumed, the mitigation (always show the name) already holds
