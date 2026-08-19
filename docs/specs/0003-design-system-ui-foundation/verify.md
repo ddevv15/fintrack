@@ -51,7 +51,7 @@ Automated tooling and the accessibility tree cannot answer these. Full detail in
 - [ ] A `Skeleton` replaced by content → no stale "loading" announcement is left behind → AC-8
 - [ ] Each of the ten category chips → announces its name, never a colour → AC-8
 - [ ] The bottom tab bar on a phone → the active tab is announced as current → AC-8
-- [ ] The ten swatches under deuteranopia and protanopia simulation → still tellable apart → AC-2, AC-8
+- [x] The ten swatches under deuteranopia and protanopia simulation → still tellable apart → AC-2, AC-8 · measured 2026-08-20, results in accessibility-pass.md: the palette collapses further than the spec assumed, the mitigation (always show the name) already holds
 
 ## Acceptance-criteria coverage
 

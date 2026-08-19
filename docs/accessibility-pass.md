@@ -82,9 +82,44 @@ Read from the browser's own tree, not from the markup:
 | 3 | Confirm a `Skeleton` replaced by content does not leave a stale announcement | Depends on the reader's queueing |
 | 4 | Walk the ten category chips and confirm each announces its name, not a colour | |
 | 5 | Confirm the bottom tab bar's active tab is announced as current on a phone | iOS VoiceOver handles `aria-current` differently from desktop |
-| 6 | View the ten swatches under a deuteranopia and protanopia simulation | Contrast figures say nothing about hue confusion, and three of the ten are greens |
+| 6 | ~~View the ten swatches under a deuteranopia and protanopia simulation~~ **Done, see below** | Ran with Chrome's vision deficiency emulation rather than by ear |
 
-Item 6 is carried from the spec's own follow up list.
+Item 6 is carried from the spec's own follow up list, and is now **done**: see
+the section below.
+
+## Colour vision: measured, and worse than the spec assumed
+
+Run on 2026-08-20 with Chrome's `Emulation.setEmulatedVisionDeficiency`, taking
+the rendered pixels of all ten category swatches and measuring the closest pair
+in each mode. Distance is plain RGB, on a 0 to 441 scale.
+
+| Simulation | Light, closest pair | Dark, closest pair |
+|---|---|---|
+| none | green vs emerald, 41.6 | orange vs yellow, 54.9 |
+| deuteranopia | orange vs red, **8.6** | blue vs purple, **9.6** |
+| protanopia | pink vs slate, 22.9 | pink vs slate, **10.2** |
+| tritanopia | blue vs teal, 15.9 | orange vs pink, 15.9 |
+| achromatopsia | green vs orange, **0.0** | purple vs emerald, **0.0** |
+
+Spec 0003 predicted that the three greens would be hard to separate. The real
+picture is broader. Under deuteranopia, the most common deficiency, a viewer
+sees roughly **four groups rather than ten**: green, orange, yellow, and red
+collapse into one olive family; blue and purple become the same blue; pink,
+teal, and slate become one grey blue. Under achromatopsia two pairs render
+pixel identical.
+
+**This does not change the components, and nothing here is a defect.** The
+palette is fixed by the ten names in the `categories.color` constraint, and no
+set of ten hues survives these simulations. What matters is that the invariant
+already holds: `CategoryChip` always renders the category name beside the dot,
+so colour is never the only signal anywhere in the interface. The swatch grid in
+the gallery is a token reference, not a screen anyone reads meaning from.
+
+**What it sharpens.** Feature 8, where your money went, must label every segment
+of its breakdown directly. A legend that maps colour to category is not enough,
+because a third of the palette is one colour to a deuteranope. Spec 0003 already
+requires labelling; this is the measurement behind it, and it is stronger than
+"the greens are close".
 
 ## Known limits, accepted
 
