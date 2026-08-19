@@ -109,9 +109,27 @@ test.describe("money and dates", () => {
   test("income carries a sign, not only a colour (AC-11)", async ({ page }) => {
     await page.goto(GALLERY);
 
-    // The point of the criterion: strip the colour and the meaning survives.
-    await expect(page.getByText("+$42.50")).toBeVisible();
-    await expect(page.getByText("$42.50", { exact: true })).toBeVisible();
+    // The gallery renders the same amount twice, once as a spend and once as
+    // an income. Asserting the relationship between the two rather than a
+    // literal "$42.50" keeps this honest whatever APP_CURRENCY happens to be:
+    // the criterion is about the sign, not about dollars.
+    const amounts = page.locator(
+      "h3:text-is('Amount') + div span[data-tabular]",
+    );
+    const spend = (await amounts.nth(0).innerText()).trim();
+    const income = (await amounts.nth(1).innerText()).trim();
+
+    expect(spend).not.toBe("");
+    expect(spend.startsWith("+")).toBe(false);
+    expect(income).toBe(`+${spend}`);
+
+    // Colour is the second, redundant signal. It must differ, but the test
+    // above is the one that proves meaning survives without it.
+    const [spendColour, incomeColour] = await Promise.all([
+      amounts.nth(0).evaluate((n) => getComputedStyle(n).color),
+      amounts.nth(1).evaluate((n) => getComputedStyle(n).color),
+    ]);
+    expect(incomeColour).not.toBe(spendColour);
   });
 
   test("a date exposes its machine readable value (AC-12)", async ({
@@ -165,7 +183,9 @@ test.describe("on a small phone", () => {
       .getByRole("listitem")
       .filter({ hasText: "A merchant name far longer" });
 
-    const amount = row.getByText("$12.50");
+    // Located by the tabular-numerals marker rather than by its text, so the
+    // test does not quietly depend on the currency the server is running.
+    const amount = row.locator("[data-tabular]");
     await expect(amount).toBeVisible();
 
     // scrollWidth beyond clientWidth is what truncation looks like in the DOM.

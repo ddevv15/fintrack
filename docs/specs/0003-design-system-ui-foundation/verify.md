@@ -6,8 +6,8 @@ Start the gallery first: `UI_GALLERY=1 npm run dev`, then open `/design`.
 
 ## Commands
 
-- [x] `npm run test` → 93 pass, including the token contract in `tests/unit/tokens.test.ts` → AC-1, AC-2
-- [x] `UI_GALLERY=1 npm run test:e2e` → 17 pass, including axe on both routes in both themes → AC-5, AC-7, AC-11, AC-12, AC-13, AC-14, AC-15, AC-17, AC-18
+- [x] `npm run test` → all pass, including the token contract in `tests/unit/tokens.test.ts` and the `UI_GALLERY` regression in `tests/unit/env.test.ts` → AC-1, AC-2
+- [x] `UI_GALLERY=1 npm run test:e2e` → all pass, including axe on both routes in both themes → AC-5, AC-7, AC-11, AC-12, AC-13, AC-14, AC-15, AC-17, AC-18
 - [x] `npm run build` then `npm start` with `UI_GALLERY` **unset** → `curl -o /dev/null -w '%{http_code}' localhost:3000/design` returns `404` → AC-17
 - [x] Same build, restarted with `UI_GALLERY=1` → `/design` returns `200`. The flag must be read per request, not baked at build time → AC-17
 - [x] `grep -rEn "#[0-9a-fA-F]{3,6}|rgb\(" components/ app/ --include=*.tsx` → no matches → AC-1
