@@ -1,0 +1,38 @@
+[auth]
+allowed_redirect_urls = []
+require_email_verification = true
+verify_email_method = "code"
+reset_password_method = "code"
+disable_signup = false
+
+[auth.password]
+min_length = 6
+require_number = false
+require_lowercase = false
+require_uppercase = false
+require_special_char = false
+
+# Gmail SMTP. Port 465 is implicit TLS, which is what this backend was already
+# speaking to Resend, so the transport mode is unchanged — only the endpoint is.
+# username and sender_email must both be the Gmail account itself: Gmail rewrites
+# a From: it does not own, so a mismatch silently changes who the mail is from.
+[auth.smtp]
+enabled = true
+host = "smtp.gmail.com"
+port = 465
+username = "devshah1583@gmail.com"
+# password is managed via secrets — run `insforge secrets add SMTP_PASSWORD "<value>"`
+# For Gmail this is a 16-character App Password, not the account password.
+password = "env(SMTP_PASSWORD)"
+sender_email = "devshah1583@gmail.com"
+sender_name = "FinTrack"
+min_interval_seconds = 60
+
+[storage]
+max_file_size_mb = 50
+
+[realtime]
+retention_days = 0
+
+[schedules]
+retention_days = 7
