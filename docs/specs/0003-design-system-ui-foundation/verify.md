@@ -14,7 +14,7 @@ Start the gallery first: `UI_GALLERY=1 npm run dev`, then open `/design`.
 
 ## UI / manual
 
-- [ ] Open `/design`, switch the operating system between light and dark → every component renders correctly in both, no missing token, no console error → AC-9 · **open**: renders correctly in both themes, but `/design` logs two 404s from `next/link` prefetching `/transactions` and `/breakdown`, which features 7 and 8 have not built yet
+- [x] Open `/design`, switch the operating system between light and dark → every component renders correctly in both, no missing token, no console error → AC-9
 - [x] Tab from the top of `/design` → first stop is "Skip to content", then the three nav tabs, then content in visual order; 22 stops, every one showing the same focus ring → AC-5
 - [x] Tab onto the primary (black) button and onto a bare surface button → the ring is visible against both, in both themes → AC-5
 - [x] Narrow the window to 320px → the tab bar moves to the bottom, every tab is at least 44px tall, and the amount in each list row is complete and unwrapped while the long merchant name truncates → AC-13, AC-14
@@ -36,6 +36,12 @@ Start the gallery first: `UI_GALLERY=1 npm run dev`, then open `/design`.
 - [x] Build for production and inspect a category dot's computed `background-color` → a real colour, not `rgba(0, 0, 0, 0)`. An interpolated Tailwind class compiles to nothing and only fails here → AC-18
 
 ## Owed: needs a person with a screen reader
+
+> The feature was marked `done` on 2026-08-20 with these still outstanding.
+> That was a deliberate call, not an oversight: this is a foundation feature
+> holding no user data, and the gap is described in
+> [../../accessibility-pass.md](../../accessibility-pass.md). AC-8 is therefore
+> accepted as owed rather than met. Run these when you can and tick them here.
 
 Automated tooling and the accessibility tree cannot answer these. Full detail in
 [../../accessibility-pass.md](../../accessibility-pass.md).

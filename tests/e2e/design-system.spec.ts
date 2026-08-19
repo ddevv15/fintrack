@@ -105,6 +105,31 @@ test.describe("the flag that guards the gallery", () => {
   });
 });
 
+test.describe("the console", () => {
+  test("the gallery loads without a single console error", async ({ page }) => {
+    // next/link prefetches every visible link, so a nav tab pointing at a
+    // route that does not exist yet logs a 404 on every load. That noise is
+    // what buries a real error later, which is the whole reason this asserts
+    // zero rather than "not many".
+    const errors: string[] = [];
+    const failed: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    page.on("response", (response) => {
+      if (response.status() >= 400) {
+        failed.push(`${response.status()} ${response.url()}`);
+      }
+    });
+
+    await page.goto(GALLERY, { waitUntil: "load" });
+    await page.waitForTimeout(500);
+
+    expect(errors).toEqual([]);
+    expect(failed).toEqual([]);
+  });
+});
+
 test.describe("money and dates", () => {
   test("income carries a sign, not only a colour (AC-11)", async ({ page }) => {
     await page.goto(GALLERY);

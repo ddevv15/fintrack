@@ -1,7 +1,7 @@
 # 0003. A token first UI foundation on native elements, server rendered
 
 **Date**: 2026-08-19
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

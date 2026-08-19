@@ -28,6 +28,13 @@ export type NavItem = {
   href: string;
   label: string;
   icon: keyof typeof icons;
+  /**
+   * Set false for a tab whose route does not exist yet. next/link prefetches
+   * every visible link, so a tab pointing at an unbuilt route logs a 404 on
+   * every page load, which buries the console errors that actually matter.
+   * Remove it once the route lands.
+   */
+  prefetch?: boolean;
 };
 
 export function AppNav({ items }: { items: readonly NavItem[] }) {
@@ -54,6 +61,7 @@ export function AppNav({ items }: { items: readonly NavItem[] }) {
             <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
+                prefetch={item.prefetch}
                 // The active tab is named as current, not just coloured, so it
                 // is announced rather than only seen.
                 aria-current={active ? "page" : undefined}

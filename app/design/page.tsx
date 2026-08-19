@@ -120,8 +120,18 @@ export default function DesignGallery() {
     <AppShell
       items={[
         { href: "/design", label: "Log", icon: "log" },
-        { href: "/transactions", label: "Month", icon: "transactions" },
-        { href: "/breakdown", label: "Breakdown", icon: "breakdown" },
+        {
+          href: "/transactions",
+          label: "Month",
+          icon: "transactions",
+          prefetch: false,
+        },
+        {
+          href: "/breakdown",
+          label: "Breakdown",
+          icon: "breakdown",
+          prefetch: false,
+        },
       ]}
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-8">

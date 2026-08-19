@@ -14,7 +14,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 1 | Stack and architecture | Foundation | done |
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data model | Foundation | done |
-| 4 | Design system and UI foundation | Foundation | in-progress |
+| 4 | Design system and UI foundation | Foundation | done |
 | 5 | Sign in and your account | Release 1 | planned |
 | 6 | Log a spend | Release 1 | planned |
 | 7 | This month's transactions | Release 1 | planned |
@@ -67,12 +67,13 @@ spec [0003](../specs/0003-design-system-ui-foundation/index.md) · code in `app/
 The visual language and the base components every screen reuses: type, color, spacing, forms, buttons, and the empty and error states.
 **Done when:** `design.md` covers type, color, spacing, and components, and the base components work with a keyboard alone and read correctly to a screen reader. (basis: WCAG 2.2, and keyboard first entry also makes daily logging less annoying)
 - [x] Design it (spec): `/architect design system & UI foundation`
-- [ ] Build it: `/develop design system & UI foundation`
+- [x] Build it: `/develop design system & UI foundation`
   - [x] Token layer and the gallery: dependencies, `cn()`, `FormState`, the full `@theme` colour, type, shape, and motion tokens in both themes, and the gallery route behind `UI_GALLERY` (AC-1, AC-2, AC-4, AC-9, AC-15, AC-17)
   - [x] Frame and controls: the focus ring, `Button`, `Card`, `AppShell`, `AppNav`, `AuthLayout`, and the form layer with its label and error wiring (AC-4, AC-5, AC-6, AC-14, AC-16)
   - [x] Data display and states: `formatPlainDate()`, `currencySymbol()`, `Amount`, `DateDisplay`, `CategoryChip`, `ListRow`, plus the empty, error, and loading components and the route error boundary (AC-10, AC-11, AC-12, AC-13, AC-18, AC-19)
-  - [ ] Prove it and write it down: the axe check wired into Playwright and CI, the recorded manual keyboard and screen reader pass, and `docs/design.md` (AC-3, AC-5, AC-7, AC-8)
-- [ ] Verify it: `/check verify design system & UI foundation`
+  - [x] Prove it and write it down: the axe check wired into Playwright and CI, the recorded manual keyboard and screen reader pass, and `docs/design.md` (AC-3, AC-5, AC-7, AC-8)
+- [x] Verify it: `/check verify design system & UI foundation`
+_Shipped with AC-8 accepted as owed: the manual screen reader pass is still outstanding, tracked in [accessibility-pass.md](../accessibility-pass.md) and the spec's `verify.md`._
 
 ## Release 1: the thinnest usable whole
 
