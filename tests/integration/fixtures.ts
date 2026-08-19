@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { createClient } from "@insforge/sdk";
 import { test as base } from "vitest";
-import type { z } from "zod";
+import { z } from "zod";
 
 import {
   categorySchema,
@@ -77,6 +77,21 @@ export function one<T extends z.ZodType>(
   return all[0];
 }
 
+/**
+ * Fail on a write that did not happen.
+ *
+ * The counterpart to `rows` and `one` for inserts, updates, and deletes. The
+ * SDK reports a refused write the same way it reports a refused read, by
+ * setting `error`, so a write whose result is never inspected is a silent no op.
+ * In teardown that is worse than in a test: the suite goes green while its rows
+ * stay behind in a backend two accounts share.
+ */
+export function assertOk(action: string, result: QueryResult): void {
+  if (result.error) {
+    throw new Error(`${action} failed: ${JSON.stringify(result.error)}`);
+  }
+}
+
 export type TestAccount = {
   label: string;
   userId: string;
@@ -149,24 +164,35 @@ export type Scratch = {
   ): Promise<Transaction>;
 };
 
+/** Just enough of a row to record it for cleanup. */
+const idOnly = z.object({ id: z.uuid() });
+
 function scratchFor(account: TestAccount) {
-  const categories: Category[] = [];
+  /**
+   * The ids this fixture created, recorded the moment the database confirms
+   * them and before the row is parsed.
+   *
+   * The order matters. Parsing can fail when the schema and the database
+   * disagree, which is exactly the drift case these suites are built to catch,
+   * and a row recorded only after a successful parse would leak on the one run
+   * where it matters most.
+   */
+  const categoryIds: string[] = [];
 
   const scratch: Scratch = {
     async category(kind: EntryDirection = "spend") {
-      const created = one(
-        categorySchema,
-        "categories",
-        await account.client.database
-          .from("categories")
-          .insert([{ name: `${RUN_TAG}-${categories.length}`, kind }])
-          .select(),
-      );
-      categories.push(created);
-      return created;
+      const result = await account.client.database
+        .from("categories")
+        .insert([{ name: `${RUN_TAG}-${categoryIds.length}`, kind }])
+        .select();
+
+      categoryIds.push(one(idOnly, "categories", result).id);
+      return one(categorySchema, "categories", result);
     },
 
     async log(category, fields) {
+      // No id tracking needed: every row a run writes hangs off one of the
+      // categories above, and disposing a category removes its rows first.
       return one(
         transactionSchema,
         "transactions",
@@ -186,17 +212,21 @@ function scratchFor(account: TestAccount) {
   };
 
   // Transactions first: a category with history cannot be deleted, which is the
-  // restrict rule these suites exist to prove.
+  // restrict rule these suites exist to prove. Every delete is checked, so a
+  // teardown that fails fails the run instead of quietly leaving rows behind.
   const dispose = async () => {
-    for (const category of categories) {
-      await account.client.database
-        .from("transactions")
-        .delete()
-        .eq("category_id", category.id);
-      await account.client.database
-        .from("categories")
-        .delete()
-        .eq("id", category.id);
+    for (const id of categoryIds) {
+      assertOk(
+        `Cleaning up transactions for category ${id}`,
+        await account.client.database
+          .from("transactions")
+          .delete()
+          .eq("category_id", id),
+      );
+      assertOk(
+        `Cleaning up category ${id}`,
+        await account.client.database.from("categories").delete().eq("id", id),
+      );
     }
   };
 

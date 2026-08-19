@@ -1,6 +1,7 @@
 import { categorySchema, transactionSchema } from "@/lib/schema";
 
 import {
+  assertOk,
   describe,
   expect,
   rows,
@@ -87,12 +88,15 @@ describe("category names and colours", () => {
       .insert([{ name: spend.name, kind: "income" }]);
     expect(error, "uniqueness is per kind, not per account").toBeFalsy();
 
-    // Not created through the scratch fixture, so remove it here.
-    await accountA.client.database
-      .from("categories")
-      .delete()
-      .eq("name", spend.name)
-      .eq("kind", "income");
+    // Not created through the scratch fixture, so remove it here, checked.
+    assertOk(
+      "Removing the income twin",
+      await accountA.client.database
+        .from("categories")
+        .delete()
+        .eq("name", spend.name)
+        .eq("kind", "income"),
+    );
   });
 
   test("a colour outside the ten tokens is refused", async ({ accountA }) => {
