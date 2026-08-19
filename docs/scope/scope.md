@@ -13,7 +13,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 |---|---------|-------|--------|
 | 1 | Stack and architecture | Foundation | done |
 | 2 | Coding standards and tooling | Foundation | done |
-| 3 | Data model | Foundation | in-progress |
+| 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | planned |
 | 5 | Sign in and your account | Release 1 | planned |
 | 6 | Log a spend | Release 1 | planned |
@@ -60,7 +60,7 @@ The core things this app stores: you, your transactions, your categories, and ho
   - [x] Zod schemas in `lib/schema.ts` with types inferred from them, plus the offline unit checks (AC-6, AC-9)
   - [x] Integration suite wired into CI: schema drift, row level security across two accounts, exact money totals, and the forward fit note (AC-2, AC-3, AC-5, AC-6, AC-7, AC-10, AC-12)
 - [x] Verify it: `/check verify data model`
-- [ ] Test it: `/test data model`
+- [x] Test it: `/test data model`
 
 ### 4. Design system and UI foundation · needs a decision
 The visual language and the base components every screen reuses: type, color, spacing, forms, buttons, and the empty and error states.

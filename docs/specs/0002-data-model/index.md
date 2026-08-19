@@ -1,7 +1,7 @@
 # 0002. Model spending as three owner scoped tables with integer cents
 
 **Date**: 2026-08-19
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

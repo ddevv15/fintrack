@@ -1,0 +1,9 @@
+{
+  "tool": "vitest",
+  "additionalTools": [],
+  "e2eTool": "playwright",
+  "testDir": "tests",
+  "filePattern": "*.test.ts",
+  "packageManager": "npm",
+  "notes": "Two Vitest projects. `npm test` runs tests/unit only: pure, offline, and safe in the pre commit hook. `npm run test:integration` uses vitest.integration.config.mts and talks to a real InsForge backend, so it never runs inside `npm test`. Playwright covers browser flows in tests/e2e."
+}
