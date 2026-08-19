@@ -98,13 +98,47 @@ const minorUnitsSchema = z
   .refine(Number.isSafeInteger, "money must be a whole number of minor units")
   .refine((amount) => amount > 0, "amount must be above zero");
 
-/** One person's profile row. Created by the database, never by the app. */
+/**
+ * One person's profile row. Created by the database, never by the app.
+ *
+ * `currency` and `timezone` are nullable because undefined means not chosen
+ * yet, which is a real state a new Google account arrives in. Nothing reads
+ * either one as a default; `getSettings()` in lib/settings.ts is what turns
+ * this row into either a complete settings object or an explicit incomplete
+ * one, so no screen has to remember the difference.
+ */
 export const profileSchema = z.object({
   user_id: z.uuid(),
   display_name: nullableToUndefined(z.string().max(100)),
+  currency: nullableToUndefined(z.string().regex(/^[A-Z]{3}$/)),
+  timezone: nullableToUndefined(z.string().min(1)),
   created_at: timestampSchema,
 });
 export type Profile = z.infer<typeof profileSchema>;
+
+/**
+ * A row of the currencies reference table.
+ *
+ * The app reads this only to prove it agrees with lib/currency.ts. Screens read
+ * the TypeScript list instead, so a picker never costs a query.
+ */
+export const currencyRowSchema = z.object({
+  code: z.string().regex(/^[A-Z]{3}$/),
+  decimals: z.number().int().min(0).max(3),
+  name: z.string().min(1),
+});
+export type CurrencyRow = z.infer<typeof currencyRowSchema>;
+
+/** What the app may change on its own profile. */
+export const profileUpdateSchema = z.object({
+  display_name: z.string().max(100).optional(),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .optional(),
+  timezone: z.string().min(1).optional(),
+});
+export type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
 
 /** A category you own. */
 export const categorySchema = z.object({

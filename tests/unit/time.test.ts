@@ -8,9 +8,11 @@ import {
 } from "@/lib/time";
 
 /**
- * Locks rule 6 of spec 0001: the calendar day comes from APP_TIMEZONE, not from
- * the machine running this. Every case passes `now` and the zone explicitly, so
- * the suite gives the same answer on your laptop and in CI.
+ * Locks rule 6 of spec 0001, as spec 0004 corrects it: the calendar day comes
+ * from the zone it is handed, which for a signed in person is their own from
+ * getSettings(), and never from the machine running this. Both arguments are
+ * required, so the suite gives the same answer on your laptop and in CI, and so
+ * no caller can fall back to a server default by leaving one out.
  */
 describe("today", () => {
   it("reads the calendar day in the given zone, not in UTC", () => {
@@ -72,18 +74,23 @@ describe("monthRange", () => {
 });
 
 describe("currentMonthRange", () => {
-  it("derives the month from the app's own idea of today", () => {
+  it("derives the month from the person's own zone, not the server's", () => {
     // 02:00 UTC on 1 September is 31 August in New York, so the current month
     // is still August. A server clock would say September and be wrong.
-    process.env.APP_TIMEZONE = "America/New_York";
-    process.env.NEXT_PUBLIC_INSFORGE_URL = "https://example.insforge.app";
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY = "test-anon-key";
-    process.env.APP_CURRENCY = "USD";
-
-    expect(currentMonthRange(new Date("2026-09-01T02:00:00Z"))).toEqual({
+    expect(
+      currentMonthRange(new Date("2026-09-01T02:00:00Z"), "America/New_York"),
+    ).toEqual({
       start: "2026-08-01",
       endExclusive: "2026-09-01",
     });
+  });
+
+  it("puts two people in different months at the same instant", () => {
+    // The same moment, one person in Tokyo and one in New York, on the last
+    // evening of a month: the whole reason the zone is per person.
+    const now = new Date("2026-09-01T02:00:00Z");
+    expect(currentMonthRange(now, "Asia/Tokyo").start).toBe("2026-09-01");
+    expect(currentMonthRange(now, "America/New_York").start).toBe("2026-08-01");
   });
 });
 

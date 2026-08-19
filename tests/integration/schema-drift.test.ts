@@ -1,4 +1,10 @@
-import { categorySchema, profileSchema, transactionSchema } from "@/lib/schema";
+import { CURRENCIES } from "@/lib/currency";
+import {
+  categorySchema,
+  currencyRowSchema,
+  profileSchema,
+  transactionSchema,
+} from "@/lib/schema";
 
 import { describe, expect, one, rows, test } from "./fixtures";
 
@@ -64,5 +70,50 @@ describe("the live tables still match lib/schema.ts", () => {
     );
     expect(row.merchant).toBeUndefined();
     expect(row.note).toBeUndefined();
+  });
+});
+
+/**
+ * Two copies of the currency list, and the one test that keeps them equal.
+ *
+ * `lib/currency.ts` exists so a picker renders without a query and so
+ * TypeScript knows the codes; `public.currencies` exists so the database can
+ * refuse a code the app made up. Neither can be dropped, so the only honest
+ * arrangement is a check that fails the build the moment they disagree.
+ *
+ * The decimal count is the part that actually matters. A code missing from one
+ * side is caught by the foreign key at write time; a decimal count that differs
+ * is silent and renders an amount off by a factor of ten (AC-11).
+ */
+describe("lib/currency.ts and the currencies table agree", () => {
+  test("on every code and every decimal count", async ({ accountA }) => {
+    const live = rows(
+      currencyRowSchema,
+      "currencies",
+      await accountA.client.database.from("currencies").select(),
+    );
+
+    const inCode = Object.fromEntries(
+      CURRENCIES.map((currency) => [currency.code, currency.decimals]),
+    );
+    const inDatabase = Object.fromEntries(
+      live.map((currency) => [currency.code, currency.decimals]),
+    );
+
+    expect(
+      inDatabase,
+      "the currencies table and lib/currency.ts have drifted. Add the code to both, or remove it from both.",
+    ).toEqual(inCode);
+  });
+
+  test("and the table is readable but not writable", async ({ accountA }) => {
+    // Reference data with no owner: every signed in account may read all of it
+    // and nobody may change it, because the only intended way this list changes
+    // is a migration (AC-19).
+    const result = await accountA.client.database
+      .from("currencies")
+      .insert([{ code: "ZZZ", decimals: 2, name: "Not a currency" }]);
+
+    expect(result.error, "inserting a currency must be refused").toBeTruthy();
   });
 });

@@ -10,9 +10,19 @@ import { z } from "zod";
 const envSchema = z.object({
   NEXT_PUBLIC_INSFORGE_URL: z.url("must be the full InsForge project URL"),
   NEXT_PUBLIC_INSFORGE_ANON_KEY: z.string().min(1, "must not be empty"),
+  // Spec 0004 demoted these two, and the demotion is easy to undo by accident,
+  // so it is written here rather than only in the spec.
+  //
+  // APP_CURRENCY is NO LONGER the app's currency. It is only the currency the
+  // sign up form preselects. A signed in person's currency is profiles.currency
+  // and reaches code through getSettings() in lib/settings.ts.
   APP_CURRENCY: z
     .string()
     .regex(/^[A-Z]{3}$/, "must be a three letter ISO 4217 code, such as USD"),
+  // APP_TIMEZONE is NO LONGER the app's timezone. It is only the fallback
+  // suggestion on the sign up form when the browser offers none. No signed in
+  // code path may read it: today() and currentMonthRange() take the zone as a
+  // required argument precisely so this cannot creep back in.
   APP_TIMEZONE: z
     .string()
     .min(1)

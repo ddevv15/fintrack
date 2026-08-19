@@ -1,14 +1,18 @@
 import { addMonths, format, parseISO, startOfMonth } from "date-fns";
 
-import { env } from "@/lib/env";
-
 /**
  * Which day is today, and where a month starts and ends.
  *
- * Rule 6 of spec 0001: the server works this out from APP_TIMEZONE, never from
- * its own clock and never from the browser's. A server in one place deciding
- * the current month for a person in another gets it wrong late on the last
- * evening of a month, which is exactly when you are checking what you spent.
+ * Rule 6 of spec 0001, as spec 0004 corrects it: the calendar day comes from
+ * the signed in person's own timezone, read through `getSettings()`, never from
+ * the server clock, never from the browser, and no longer from APP_TIMEZONE. A
+ * server in one place deciding the current month for a person in another gets
+ * it wrong late on the last evening of a month, which is exactly when you are
+ * checking what you spent.
+ *
+ * The timezone is a required argument rather than a default read from the
+ * environment, which is what makes that rule enforceable: there is no way to
+ * call these and accidentally get somebody else's idea of today.
  *
  * A plain date such as "2026-08-19" carries no time and no zone, so once the
  * calendar day is settled here, everything downstream is ordinary date maths.
@@ -18,15 +22,12 @@ import { env } from "@/lib/env";
 export type PlainDate = string;
 
 /**
- * The calendar day it currently is in the app's reference zone.
+ * The calendar day it currently is in a given zone.
  *
  * Intl does the zone shift, which avoids hand rolled offset arithmetic and
  * stays correct across daylight saving changes.
  */
-export function today(
-  now: Date = new Date(),
-  timeZone: string = env().APP_TIMEZONE,
-): PlainDate {
+export function today(now: Date, timeZone: string): PlainDate {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -67,12 +68,15 @@ export function monthRange(day: PlainDate): {
   };
 }
 
-/** The month you are in right now, in the app's reference zone. */
-export function currentMonthRange(now?: Date): {
+/** The month you are in right now, in a given zone. */
+export function currentMonthRange(
+  now: Date,
+  timeZone: string,
+): {
   start: PlainDate;
   endExclusive: PlainDate;
 } {
-  return monthRange(today(now));
+  return monthRange(today(now, timeZone));
 }
 
 /**

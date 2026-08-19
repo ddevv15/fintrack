@@ -36,7 +36,26 @@ describe("formatAmount", () => {
 
   it("honours the currency it is given", () => {
     expect(formatAmount(1250, "EUR", "en-US")).toBe("€12.50");
-    expect(formatAmount(1250, "JPY", "en-US")).toBe("¥13");
+  });
+
+  it("reads the decimal count from the currency, not from a hundred", () => {
+    // The single stored integer 500, in three currencies with three different
+    // minor unit exponents. This is AC-10, and it is the reason the whole
+    // rename happened: dividing by a hundred makes the first of these ¥5.
+    expect(formatAmount(500, "JPY", "en-US")).toBe("¥500");
+    expect(formatAmount(500, "USD", "en-US")).toBe("$5.00");
+    expect(formatAmount(500, "KWD", "en-US")).toBe("KWD\u00a00.500");
+  });
+
+  it("keeps a zero decimal currency free of a decimal point", () => {
+    expect(formatAmount(1250, "JPY", "en-US")).toBe("¥1,250");
+    expect(formatAmount(1250, "KRW", "en-US")).toBe("₩1,250");
+  });
+
+  it("refuses a currency it does not support rather than assuming two", () => {
+    // Guessing two here is exactly how a yen amount ends up a hundred times
+    // too small, so an unsupported code is an error and not a default.
+    expect(() => formatAmount(500, "XYZ")).toThrow(/not a supported currency/);
   });
 
   it("refuses a fraction of a minor unit instead of quietly rounding it", () => {
