@@ -63,14 +63,14 @@ The core things this app stores: you, your transactions, your categories, and ho
 - [x] Test it: `/test data model`
 
 ### 4. Design system and UI foundation
-spec [0003](../specs/0003-design-system-ui-foundation/index.md)
+spec [0003](../specs/0003-design-system-ui-foundation/index.md) · code in `app/globals.css`, `components/ui/`, `app/design/`, `lib/ui.ts`, `lib/forms.ts`, `docs/design.md`
 The visual language and the base components every screen reuses: type, color, spacing, forms, buttons, and the empty and error states.
 **Done when:** `design.md` covers type, color, spacing, and components, and the base components work with a keyboard alone and read correctly to a screen reader. (basis: WCAG 2.2, and keyboard first entry also makes daily logging less annoying)
 - [x] Design it (spec): `/architect design system & UI foundation`
 - [ ] Build it: `/develop design system & UI foundation`
-  - [ ] Token layer and the gallery: dependencies, `cn()`, `FormState`, the full `@theme` colour, type, shape, and motion tokens in both themes, and the gallery route behind `UI_GALLERY` (AC-1, AC-2, AC-4, AC-9, AC-15, AC-17)
-  - [ ] Frame and controls: the focus ring, `Button`, `Card`, `AppShell`, `AppNav`, `AuthLayout`, and the form layer with its label and error wiring (AC-4, AC-5, AC-6, AC-14, AC-16)
-  - [ ] Data display and states: `formatPlainDate()`, `currencySymbol()`, `Amount`, `DateDisplay`, `CategoryChip`, `ListRow`, plus the empty, error, and loading components and the route error boundary (AC-10, AC-11, AC-12, AC-13, AC-18, AC-19)
+  - [x] Token layer and the gallery: dependencies, `cn()`, `FormState`, the full `@theme` colour, type, shape, and motion tokens in both themes, and the gallery route behind `UI_GALLERY` (AC-1, AC-2, AC-4, AC-9, AC-15, AC-17)
+  - [x] Frame and controls: the focus ring, `Button`, `Card`, `AppShell`, `AppNav`, `AuthLayout`, and the form layer with its label and error wiring (AC-4, AC-5, AC-6, AC-14, AC-16)
+  - [x] Data display and states: `formatPlainDate()`, `currencySymbol()`, `Amount`, `DateDisplay`, `CategoryChip`, `ListRow`, plus the empty, error, and loading components and the route error boundary (AC-10, AC-11, AC-12, AC-13, AC-18, AC-19)
   - [ ] Prove it and write it down: the axe check wired into Playwright and CI, the recorded manual keyboard and screen reader pass, and `docs/design.md` (AC-3, AC-5, AC-7, AC-8)
 - [ ] Verify it: `/check verify design system & UI foundation`
 

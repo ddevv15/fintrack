@@ -88,6 +88,10 @@ jobs:
       # The Playwright config builds and starts the app itself in CI, so this
       # also proves the production build compiles.
       - name: Run Playwright
+        # The accessibility check points axe at the design gallery, and that
+        # route 404s without this flag. An axe violation fails the run.
+        env:
+          UI_GALLERY: "1"
         run: npm run test:e2e
 
       - uses: actions/upload-artifact@v5

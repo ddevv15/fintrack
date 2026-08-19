@@ -1,7 +1,7 @@
 # 0003. A token first UI foundation on native elements, server rendered
 
 **Date**: 2026-08-19
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
@@ -183,17 +183,17 @@ No credential, and nothing secret: the flag reveals only that a design gallery e
 
 Ordered by the project's Skateboard approach: get one real, themed, viewable thing working end to end first, then widen it. Every step leaves the gallery route rendering and the build green.
 
-1. Add the dependencies (`lucide-react`, `clsx`, `tailwind-merge`, `@axe-core/playwright`), write `lib/ui.ts` exporting `cn()` and `lib/forms.ts` exporting `FormState`, and declare `UI_GALLERY` in `lib/env.ts`. No visual change yet, satisfies **AC-4**, **AC-17**
-2. Replace the starter contents of `app/globals.css` with the full `@theme` token layer: surface, text, all ten category colours, semantic aliases, type scale, radius, motion, each with a light and a dark value under `prefers-color-scheme`. Remove the hardcoded `body` font override, satisfies **AC-1**, **AC-2**, **AC-9**, **AC-15**
-3. Build the gallery route at `app/design/page.tsx`, calling `notFound()` unless `UI_GALLERY` is set, showing the raw token layer first: every colour swatch, every type size, the spacing steps. This is the skateboard, a real page proving the vocabulary before a single component exists, satisfies **AC-17**
-4. Build `Button` (including the `destructive` variant) and `Card`, and define the shared focus ring once as a reusable token driven class applied by every focusable element from here on. Add both to the gallery in every variant, size, and state, satisfies **AC-4**, **AC-5**
-5. Build `AppShell`, `AppNav`, and `AuthLayout`, switching layout at `md` (768 pixels). Wire `AppShell` into a signed in route group and confirm the tabs sit in thumb reach and meet the target size down to 320 pixels wide, satisfies **AC-4**, **AC-14**
-6. Add `currencySymbol()` to `lib/money.ts` with its unit tests, then build the form layer: `Field`, `Input`, `AmountInput`, `Select`. `Field` owns id generation and the `aria-describedby` and `aria-invalid` wiring, carrying both hint and error ids when both exist; `AmountInput` captures text and parses nothing. Add every state, including hint plus error together, to the gallery, satisfies **AC-4**, **AC-6**, **AC-16**
-7. Add `formatPlainDate()` to `lib/time.ts` with its unit tests, then build `Amount`, `DateDisplay`, `CategoryChip`, and `ListRow`, including the exhaustive colour map, the `actions` slot, the truncation rule, and tabular numerals. Confirm all ten chips render in a production build, satisfies **AC-10**, **AC-11**, **AC-12**, **AC-13**, **AC-18**
-8. Build `EmptyState`, `ErrorState` (retry as a form, not an `onClick`), and `Skeleton` (with its required `label`), and add the route level `error.tsx`. Render each in the gallery in the position it stands in for, satisfies **AC-19**
-9. Wire the `axe` check into Playwright against the gallery route in both themes, and set `UI_GALLERY` in the CI workflow's e2e job so the production build under test can serve the route. A violation fails the run, satisfies **AC-7**
-10. Walk the gallery by keyboard and with a screen reader, fix what it finds, and record the pass in the repository, satisfies **AC-5**, **AC-8**
-11. Write `docs/design.md` from what was actually built: tokens with their values, the type scale, spacing, focus, motion, and every component with its variants and states, satisfies **AC-3**
+1. [x] Add the dependencies (`lucide-react`, `clsx`, `tailwind-merge`, `@axe-core/playwright`), write `lib/ui.ts` exporting `cn()` and `lib/forms.ts` exporting `FormState`, and declare `UI_GALLERY` in `lib/env.ts`. No visual change yet, satisfies **AC-4**, **AC-17**
+2. [x] Replace the starter contents of `app/globals.css` with the full `@theme` token layer: surface, text, all ten category colours, semantic aliases, type scale, radius, motion, each with a light and a dark value under `prefers-color-scheme`. Remove the hardcoded `body` font override, satisfies **AC-1**, **AC-2**, **AC-9**, **AC-15**
+3. [x] Build the gallery route at `app/design/page.tsx`, calling `notFound()` unless `UI_GALLERY` is set, showing the raw token layer first: every colour swatch, every type size, the spacing steps. This is the skateboard, a real page proving the vocabulary before a single component exists, satisfies **AC-17**
+4. [x] Build `Button` (including the `destructive` variant) and `Card`, and define the shared focus ring once as a reusable token driven class applied by every focusable element from here on. Add both to the gallery in every variant, size, and state, satisfies **AC-4**, **AC-5**
+5. [x] Build `AppShell`, `AppNav`, and `AuthLayout`, switching layout at `md` (768 pixels). Wire `AppShell` into a signed in route group and confirm the tabs sit in thumb reach and meet the target size down to 320 pixels wide, satisfies **AC-4**, **AC-14**
+6. [x] Add `currencySymbol()` to `lib/money.ts` with its unit tests, then build the form layer: `Field`, `Input`, `AmountInput`, `Select`. `Field` owns id generation and the `aria-describedby` and `aria-invalid` wiring, carrying both hint and error ids when both exist; `AmountInput` captures text and parses nothing. Add every state, including hint plus error together, to the gallery, satisfies **AC-4**, **AC-6**, **AC-16**
+7. [x] Add `formatPlainDate()` to `lib/time.ts` with its unit tests, then build `Amount`, `DateDisplay`, `CategoryChip`, and `ListRow`, including the exhaustive colour map, the `actions` slot, the truncation rule, and tabular numerals. Confirm all ten chips render in a production build, satisfies **AC-10**, **AC-11**, **AC-12**, **AC-13**, **AC-18**
+8. [x] Build `EmptyState`, `ErrorState` (retry as a form, not an `onClick`), and `Skeleton` (with its required `label`), and add the route level `error.tsx`. Render each in the gallery in the position it stands in for, satisfies **AC-19**
+9. [x] Wire the `axe` check into Playwright against the gallery route in both themes, and set `UI_GALLERY` in the CI workflow's e2e job so the production build under test can serve the route. A violation fails the run, satisfies **AC-7**
+10. [ ] Walk the gallery by keyboard and with a screen reader, fix what it finds, and record the pass in the repository, satisfies **AC-5**, **AC-8**
+11. [x] Write `docs/design.md` from what was actually built: tokens with their values, the type scale, spacing, focus, motion, and every component with its variants and states, satisfies **AC-3**
 
 ## Consequences
 

@@ -32,5 +32,12 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    // The design gallery is the only route the accessibility check can point
+    // at, and it 404s without this. Set here rather than in the CI workflow so
+    // the same command works locally. If you already have a dev server up
+    // without it, stop that server or the gallery tests will 404.
+    // CI sets this explicitly in the workflow; locally it defaults on so the
+    // same command just works.
+    env: { UI_GALLERY: process.env.UI_GALLERY ?? "1" },
   },
 });
