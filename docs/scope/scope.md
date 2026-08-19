@@ -13,7 +13,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 |---|---------|-------|--------|
 | 1 | Stack and architecture | Foundation | done |
 | 2 | Coding standards and tooling | Foundation | done |
-| 3 | Data model | Foundation | planned |
+| 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | planned |
 | 5 | Sign in and your account | Release 1 | planned |
 | 6 | Log a spend | Release 1 | planned |
@@ -48,10 +48,19 @@ Capture the real conventions from the scaffolded project, then install the lint,
 - [x] Capture conventions and tooling choices: `/audit`
 - [x] Install the tooling: `/develop tooling`
 
-### 3. Data model · needs a decision · Beta
+### 3. Data model · Beta
+spec [0002](../specs/0002-data-model/index.md) · code in `migrations/`, `lib/schema.ts`, `tests/unit/schema.test.ts`, `tests/integration/`
 The core things this app stores: you, your transactions, your categories, and how they connect. Money amounts and dates live here.
 **Done when:** the model holds both a spend and an income entry against a category and a date, amounts are stored exactly rather than as approximate decimals, and the later releases (budgets, repeating bills, several accounts) fit without a breaking change. (basis: a wrong data model is the most expensive thing to redo, and binary floating point is the classic way money math goes quietly wrong)
-- [ ] Design it (spec): `/architect data model`
+- [x] Design it (spec): `/architect data model`
+- [x] Build it: `/develop data model`
+  - [x] Stand up a non production backend branch with two test accounts and the test only environment values (AC-7, AC-10)
+  - [x] Core schema migration: the direction enum, the three tables, every constraint and index, and row level security on all of them (AC-1, AC-2, AC-3, AC-5, AC-6, AC-7, AC-8, AC-11)
+  - [x] New account trigger: the profile row and the ten starting categories, seeded by the database alone (AC-4)
+  - [x] Zod schemas in `lib/schema.ts` with types inferred from them, plus the offline unit checks (AC-6, AC-9)
+  - [x] Integration suite wired into CI: schema drift, row level security across two accounts, exact money totals, and the forward fit note (AC-2, AC-3, AC-5, AC-6, AC-7, AC-10, AC-12)
+- [x] Verify it: `/check verify data model`
+- [x] Test it: `/test data model`
 
 ### 4. Design system and UI foundation · needs a decision
 The visual language and the base components every screen reuses: type, color, spacing, forms, buttons, and the empty and error states.
