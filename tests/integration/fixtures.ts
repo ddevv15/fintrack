@@ -214,18 +214,54 @@ function scratchFor(account: TestAccount) {
   // Transactions first: a category with history cannot be deleted, which is the
   // restrict rule these suites exist to prove. Every delete is checked, so a
   // teardown that fails fails the run instead of quietly leaving rows behind.
+  //
+  // One refused delete must not end the teardown, though. The two accounts are
+  // fixed and reused, so whatever a run abandons is still there on the next
+  // one, and stopping at the first failure would strand rows this run could
+  // have removed. Every id gets its turn and the failures are reported once, at
+  // the end, so the run still fails.
   const dispose = async () => {
+    const failures: string[] = [];
+
+    /** Run one delete, recording a refusal rather than throwing on it. */
+    const attempt = async (
+      action: string,
+      query: PromiseLike<QueryResult>,
+    ): Promise<boolean> => {
+      try {
+        assertOk(action, await query);
+        return true;
+      } catch (cause) {
+        failures.push(cause instanceof Error ? cause.message : String(cause));
+        return false;
+      }
+    };
+
     for (const id of categoryIds) {
-      assertOk(
+      const cleared = await attempt(
         `Cleaning up transactions for category ${id}`,
-        await account.client.database
+        account.client.database
           .from("transactions")
           .delete()
           .eq("category_id", id),
       );
-      assertOk(
+
+      // Only worth asking once the rows are gone: with them still there the
+      // restrict rule refuses the category, and that second failure would name
+      // a cause the first one already recorded.
+      if (!cleared) continue;
+
+      await attempt(
         `Cleaning up category ${id}`,
-        await account.client.database.from("categories").delete().eq("id", id),
+        account.client.database.from("categories").delete().eq("id", id),
+      );
+    }
+
+    if (failures.length > 0) {
+      throw new Error(
+        `Fixture cleanup left rows behind in a backend two accounts share:\n${failures
+          .map((failure) => `  ${failure}`)
+          .join("\n")}`,
       );
     }
   };
