@@ -2,7 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { transactionSchema, parseRows } from "@/lib/schema";
 
-import { cleanUp, RUN_DATE, signIn, type TestAccount } from "./accounts";
+import {
+  cleanUp,
+  createRunCategory,
+  FIXTURE_DATE,
+  signIn,
+  type TestAccount,
+} from "./accounts";
 
 /**
  * Money adds up exactly, proved rather than declared.
@@ -29,18 +35,14 @@ beforeAll(async () => {
   );
   await cleanUp(account);
 
-  const { data } = await account.client.database
-    .from("categories")
-    .select("id")
-    .eq("name", "Groceries");
-  categoryId = (data as { id: string }[])[0].id;
+  categoryId = await createRunCategory(account, "exactness");
 
   const { error } = await account.client.database.from("transactions").insert(
     amounts.map((cents) => ({
       category_id: categoryId,
       direction: "spend" as const,
       amount_cents: cents,
-      occurred_on: RUN_DATE,
+      occurred_on: FIXTURE_DATE,
     })),
   );
   expect(error).toBeFalsy();
@@ -55,7 +57,7 @@ describe("amounts survive the round trip and the sum", () => {
     const { data } = await account.client.database
       .from("transactions")
       .select()
-      .eq("occurred_on", RUN_DATE);
+      .eq("category_id", categoryId);
 
     const rows = parseRows(transactionSchema, "transactions", data);
     expect(rows.map((row) => row.amount_cents).sort((x, y) => x - y)).toEqual(
@@ -67,7 +69,7 @@ describe("amounts survive the round trip and the sum", () => {
     const { data } = await account.client.database
       .from("transactions")
       .select("amount_cents")
-      .eq("occurred_on", RUN_DATE);
+      .eq("category_id", categoryId);
 
     const rows = data as { amount_cents: number | string }[];
     const total = rows.reduce((sum, row) => sum + Number(row.amount_cents), 0);
@@ -78,7 +80,7 @@ describe("amounts survive the round trip and the sum", () => {
     const { data } = await account.client.database
       .from("transactions")
       .select("amount_cents")
-      .eq("occurred_on", RUN_DATE);
+      .eq("category_id", categoryId);
 
     for (const row of data as { amount_cents: number | string }[]) {
       expect(Number.isSafeInteger(Number(row.amount_cents))).toBe(true);

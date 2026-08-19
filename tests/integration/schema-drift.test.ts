@@ -7,7 +7,13 @@ import {
   transactionSchema,
 } from "@/lib/schema";
 
-import { cleanUp, RUN_DATE, signIn, type TestAccount } from "./accounts";
+import {
+  cleanUp,
+  createRunCategory,
+  FIXTURE_DATE,
+  signIn,
+  type TestAccount,
+} from "./accounts";
 
 /**
  * Does lib/schema.ts still describe the real tables?
@@ -19,6 +25,7 @@ import { cleanUp, RUN_DATE, signIn, type TestAccount } from "./accounts";
  */
 
 let account: TestAccount;
+let categoryId: string;
 
 beforeAll(async () => {
   account = await signIn(
@@ -28,17 +35,14 @@ beforeAll(async () => {
   );
   await cleanUp(account);
 
-  const { data: categories } = await account.client.database
-    .from("categories")
-    .select("id")
-    .eq("name", "Groceries");
+  categoryId = await createRunCategory(account, "drift");
 
   await account.client.database.from("transactions").insert([
     {
-      category_id: (categories as { id: string }[])[0].id,
+      category_id: categoryId,
       direction: "spend",
       amount_cents: 1234,
-      occurred_on: RUN_DATE,
+      occurred_on: FIXTURE_DATE,
       merchant: "Drift Check",
       note: "written so this table has a row to read",
     },
@@ -80,19 +84,14 @@ describe("the live tables still match lib/schema.ts", () => {
   });
 
   it("keeps a nullable column as undefined rather than null", async () => {
-    const { data: categories } = await account.client.database
-      .from("categories")
-      .select("id")
-      .eq("name", "Transport");
-
     const { data } = await account.client.database
       .from("transactions")
       .insert([
         {
-          category_id: (categories as { id: string }[])[0].id,
+          category_id: categoryId,
           direction: "spend",
           amount_cents: 700,
-          occurred_on: RUN_DATE,
+          occurred_on: FIXTURE_DATE,
         },
       ])
       .select();

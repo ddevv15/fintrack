@@ -13,28 +13,33 @@ import { createClient } from "@insforge/sdk";
  * and leave the accounts alone.
  */
 /**
- * A date and a tag unique to this run.
+ * A tag unique to this run, and the fixed date its fixtures carry.
  *
  * The two accounts are fixed and reused, so two runs can be in flight at once:
  * you running the suite locally while CI runs it on a push. Cleaning up by
- * account alone would then have one run deleting rows the other just wrote,
- * failing tests that were perfectly correct. Every row a run creates carries
- * this date, and every cleanup is scoped to it, so runs never touch each other.
- * It also means rows left behind by a crashed run are ignored rather than
- * counted into a total.
+ * account alone would have one run deleting rows the other just wrote, failing
+ * tests that were perfectly correct.
  *
- * The date sits far in the future so it can never be mistaken for real
- * spending, spread across roughly 270 years so two runs choosing the same day
- * is not a practical concern.
+ * So a run never writes a transaction against a shared category. It creates its
+ * own categories, named with this tag, and every fixture hangs off one of them.
+ * Cleanup then deletes by category rather than by account, which is exact.
+ *
+ * The tag carries 64 bits of randomness, and it is the database that makes that
+ * safe rather than the odds: category names are unique per account and kind, so
+ * two runs drawing the same tag cannot quietly share a category. The second one
+ * fails loudly on the unique index instead of deleting the first one's data.
+ * A date cannot offer that, which is why it is no longer the key.
  */
-export const RUN_DATE = ((): string => {
-  const start = Date.UTC(2200, 0, 1);
-  const day = Math.floor(Math.random() * 100_000);
-  return new Date(start + day * 86_400_000).toISOString().slice(0, 10);
-})();
+export const RUN_TAG = `zz-run-${randomUUID().replace(/-/g, "").slice(0, 16)}`;
 
-/** Prefix for any category a run creates, so cleanup finds exactly those. */
-export const RUN_TAG = `zz-run-${randomUUID().slice(0, 8)}`;
+/**
+ * The day every fixture is dated.
+ *
+ * Fixed, not random: it no longer has to be unique, because the category does
+ * that job. Far in the future so a stray row can never be mistaken for real
+ * spending.
+ */
+export const FIXTURE_DATE = "2250-01-15";
 
 export type TestAccount = {
   label: string;
@@ -100,37 +105,38 @@ export async function signInBoth(): Promise<[TestAccount, TestAccount]> {
 }
 
 /**
- * Remove only what this run created: rows dated RUN_DATE, and categories named
- * with this run's tag. Another run's rows, and the ten starting categories, are
- * left alone.
+ * Remove exactly what this run created, and nothing else.
+ *
+ * Every fixture hangs off a category named with this run's tag, so finding
+ * those categories finds every row the run wrote. Another run's rows, and the
+ * ten starting categories, are untouchable from here.
  *
  * Transactions go first. A category with history cannot be deleted, which is
  * the whole point of the restrict rule these suites prove, so the other order
  * would fail.
  */
 export async function cleanUp(account: TestAccount): Promise<void> {
-  await account.client.database
-    .from("transactions")
-    .delete()
-    .eq("user_id", account.userId)
-    .eq("occurred_on", RUN_DATE);
-
   const { data } = await account.client.database
     .from("categories")
-    .select("id, name")
+    .select("id")
     .eq("user_id", account.userId)
     .like("name", `${RUN_TAG}%`);
 
   for (const own of (data ?? []) as { id: string }[]) {
+    await account.client.database
+      .from("transactions")
+      .delete()
+      .eq("category_id", own.id);
+
     await account.client.database.from("categories").delete().eq("id", own.id);
   }
 }
 
 /**
- * Create a category this run owns, for any test that needs to change one.
+ * Create a category this run owns. Every fixture transaction hangs off one.
  *
- * Hiding or renaming a starting category such as Groceries would be shared
- * state: two runs toggling the same row would read each other's changes.
+ * Writing against a starting category such as Groceries would be shared state:
+ * two runs would see each other's rows, and cleanup could not tell them apart.
  */
 export async function createRunCategory(
   account: TestAccount,

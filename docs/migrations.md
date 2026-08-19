@@ -77,10 +77,16 @@ It needs three values in `.env.local`, listed in `.env.example`. The tests sign
 in, do their work, and clean up their own rows between runs.
 
 Two runs can safely overlap, which matters because you may run the suite locally
-while CI runs it on a push. Both accounts are fixed and shared, so every row a
-run writes carries a date unique to that run, and cleanup only ever removes rows
-carrying that date. A run that crashes leaves rows behind, and the next run
-ignores them rather than counting them into a total. They never delete
+while CI runs it on a push. Both accounts are fixed and shared, so a run never
+writes against a starting category. It creates its own categories, named with a
+tag unique to that run, and every fixture hangs off one of them; cleanup then
+deletes by category rather than by account.
+
+The database is what makes that safe rather than the odds. Category names are
+unique per account and per kind, so two runs drawing the same tag cannot quietly
+share a category: the second one fails loudly on the unique index instead of
+deleting the first one's data. A run that crashes leaves its rows behind, and
+the next run ignores them rather than counting them into a total. They never delete
 the accounts, so the setup below stays done.
 
 ### Recreating the two test accounts

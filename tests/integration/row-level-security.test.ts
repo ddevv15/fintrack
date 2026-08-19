@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   cleanUp,
   createRunCategory,
-  RUN_DATE,
+  FIXTURE_DATE,
+  RUN_TAG,
   signInBoth,
   type TestAccount,
 } from "./accounts";
@@ -21,25 +22,20 @@ let b: TestAccount;
 let aCategoryId: string;
 let aTransactionId: string;
 let aOwnCategoryId: string;
+let aIncomeCategoryId: string;
 
-// Every row this run writes carries RUN_DATE, so a concurrent run never sees
-// or deletes it. See RUN_DATE in ./accounts.
-const today = RUN_DATE;
+const today = FIXTURE_DATE;
 
 beforeAll(async () => {
   [a, b] = await signInBoth();
   await cleanUp(a);
   await cleanUp(b);
 
-  const { data: categories } = await a.client.database
-    .from("categories")
-    .select("id, name, kind")
-    .eq("name", "Groceries");
-  aCategoryId = (categories as { id: string }[])[0].id;
-
-  // A category only this run owns, for the tests that change one. Toggling a
-  // starting category would be shared state across concurrent runs.
+  // Every fixture hangs off a category this run owns, so cleanup can find
+  // exactly this run's rows and a concurrent run can never touch them.
+  aCategoryId = await createRunCategory(a, "spend");
   aOwnCategoryId = await createRunCategory(a, "history");
+  aIncomeCategoryId = await createRunCategory(a, "income", "income");
 
   const { data: inserted, error } = await a.client.database
     .from("transactions")
@@ -173,34 +169,38 @@ describe("the database refuses bad money and bad references", () => {
   });
 
   it("refuses a spend filed under an income category", async () => {
-    const { data } = await a.client.database
-      .from("categories")
-      .select("id")
-      .eq("name", "Salary");
-    const salaryId = (data as { id: string }[])[0].id;
-
     const { error } = await a.client.database.from("transactions").insert([
       {
-        category_id: salaryId,
+        category_id: aIncomeCategoryId,
         direction: "spend",
         amount_cents: 500,
         occurred_on: today,
       },
     ]);
-    expect(error, "a spend under Salary must be refused").toBeTruthy();
+    expect(
+      error,
+      "a spend under an income category must be refused",
+    ).toBeTruthy();
   });
 
   it("refuses a second category whose name differs only in case", async () => {
+    // The run's own spend category, in a different case.
+    const clash = (await a.client.database
+      .from("categories")
+      .select("name")
+      .eq("id", aCategoryId)) as { data: { name: string }[] };
     const { error } = await a.client.database
       .from("categories")
-      .insert([{ name: "groceries", kind: "spend" }]);
-    expect(error, "groceries next to Groceries must be refused").toBeTruthy();
+      .insert([{ name: clash.data[0].name.toUpperCase(), kind: "spend" }]);
+    expect(error, "the same name in another case must be refused").toBeTruthy();
   });
 
   it("refuses a colour outside the ten tokens", async () => {
     const { error } = await a.client.database
       .from("categories")
-      .insert([{ name: "Gadgets", kind: "spend", color: "#22c55e" }]);
+      .insert([
+        { name: `${RUN_TAG}-gadgets`, kind: "spend", color: "#22c55e" },
+      ]);
     expect(error, "a hex colour must be refused").toBeTruthy();
   });
 
