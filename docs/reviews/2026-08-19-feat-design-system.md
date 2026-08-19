@@ -1,96 +1,54 @@
-# Review, feat/design-system, 2026-08-19
+# Review, feat/design-system, 2026-08-20
 
 **Reviewed by**: Claude Sonnet 5 (author on Claude Opus 5 / Sonnet 5)
-**Scope**: 40 files, branch vs `main` (merge base `e4f39bc`)
-**Verdict**: Changes requested
+**Scope**: 42 files, branch vs `main` (merge base `e4f39bc`)
+**Verdict**: Approve with nits
 
 ## Summary
 
-This lands the token-first design system from spec 0003: a `@theme` CSS layer with light/dark values for every color, sixteen server-rendered components over native HTML elements, the `/design` gallery gated behind `UI_GALLERY`, and a genuinely strong test story (contrast math in Vitest, axe + keyboard + reduced-motion + touch-target checks in Playwright). The component work is careful and largely matches the spec's invariants (exhaustive color maps, no interpolated classes, `Amount`/`DateDisplay` staying server-only, the single client boundary in `AppNav`). One real defect: the `UI_GALLERY` env var, as literally shipped in `.env.example`, crashes the entire app rather than defaulting to off, which contradicts the spec's own stated contract and undermines exactly the onboarding flow the file's header comment describes. A handful of minor issues round it out, several already known and tracked (the two console 404s from `AppNav`, the pre-existing `lib/money.ts` zero-decimal-currency bug), plus a couple not previously surfaced (an environment-coupled e2e assertion, a dev-mode-only e2e failure, an under-sized currency-symbol adornment).
-
-## Major
-
-### 🟠 `UI_GALLERY=` in `.env.local`, as `.env.example` ships it, crashes the whole app, not just the gallery, `lib/env.ts:27`, `.env.example:19`
-
-**Problem**: `UI_GALLERY` is validated as `z.enum(["1", "0", "true", "false"]).optional()`. `.optional()` only accepts `undefined` — it does not accept an empty string. `.env.example` adds the line `UI_GALLERY=` (no value) as the template row, under the header "Copy this file to .env.local and fill it in." I verified with the project's own `@next/env` loader (the same one Next.js uses for `.env.local`) that a bare `KEY=` line parses to `process.env.UI_GALLERY === ""`, not `undefined`:
-
-```
-node -e "
-const { loadEnvConfig } = require('./node_modules/@next/env/dist/index.js');
-...
-loadEnvConfig(tmpDir, false, ...);
-console.log(JSON.stringify(process.env.UI_GALLERY)); // => \"\"
-"
-```
-
-And confirmed separately that Zod's `z.enum([...]).optional()` rejects `""`:
-```
-schema.safeParse('')  // => { success: false, ... "Invalid option: expected one of ..." }
-```
-
-Since `env()` parses the whole schema in one `safeParse` call and caches nothing on failure, an invalid `UI_GALLERY` field fails validation for `NEXT_PUBLIC_INSFORGE_URL`, `APP_CURRENCY`, `APP_TIMEZONE` too — `env()` throws on every call, from every route, not only `/design`. I reproduced this directly against the app's own env loader; I did not need to touch the working `.env.local` in this repo (it happens to omit the `UI_GALLERY` line entirely, which is why the app works today).
-
-**Why it matters**: the schema's own comment says "Unset means false, which is what production runs," and AC-17 says the same. A blank value from the literal, documented setup path (`cp .env.example .env.local`) is not the same as unset to Zod, so the file that exists specifically to make setup foolproof contains a value that breaks setup. This also matters in a real Vercel deployment: adding the `UI_GALLERY` key in the dashboard with an empty value (which the UI allows) reproduces the same crash in production, not just locally.
-
-**Suggested fix**: either strip a blank string before validation (e.g. `z.string().optional().transform(v => v === "" ? undefined : v)` piped into the enum check), or drop `.env.example`'s `UI_GALLERY=` line entirely (comment-only, no `KEY=`) so copying the file can never produce this state. The second is cheaper and matches how the file already documents `APP_TIMEZONE`/`APP_CURRENCY` (real example values, not blank keys).
+This lands the token-first design system from spec 0003: a `@theme` CSS layer with light/dark values for every colour, sixteen server-rendered components over native HTML elements, the `/design` gallery gated behind `UI_GALLERY`, and a strong test story (contrast math in Vitest, axe + keyboard + reduced-motion + touch-target checks in Playwright). This is a re-review of the branch as it now stands, after commit `f733f21` addressed the previous review's one Major (`UI_GALLERY=` crashing every route) and two of its Minors (currency-coupled e2e assertions, the dev-toolbar target-size failure). I re-verified all three fixes directly rather than trusting the commit message, and re-audited the ~37 files that were unchanged since the last pass. The env fix is correct and well tested; the dev-toolbar skip is correct and I confirmed it against a live dev server. The currency-pin fix is real but incomplete — it closes the common case but not the case where a developer already has `npm run dev` running, which is exactly this project's own local setup. Nothing else rises above Minor: the two items the task description said were deliberately left unfixed (`AppNav`'s console 404s, `formatCents`'s zero-decimal-currency bug) are still present and still correctly out of scope for this PR.
 
 ## Minor
 
-### 🟡 e2e assertions hardcode `$`-formatted text without pinning `APP_CURRENCY`, `tests/e2e/design-system.spec.ts:113`, `:169`
+### 🟡 The `APP_CURRENCY` e2e fix only works when Playwright starts its own server; a developer's already-running `npm run dev` still breaks AC-11/AC-13, `playwright.config.ts:46`, `tests/e2e/design-system.spec.ts:113`, `:169`
 
-**Problem**: "income carries a sign, not only a colour (AC-11)" and "an amount never truncates (AC-13)" assert literal strings like `"+$42.50"` and `"$12.50"`, but `Amount`/`AmountInput` format through `formatCents()`/`currencySymbol()`, which read `APP_CURRENCY` from the environment. CI pins `APP_CURRENCY: USD` at the workflow level, so these pass there, but I ran the suite locally against this repo's own `.env.local` (which sets a non-USD currency) and both tests failed for exactly this reason — not a rendering bug, a currency mismatch. `npm run test:e2e` is the command `AGENTS.md` documents for local use, and `playwright.config.ts`'s `webServer` block does not pin `APP_CURRENCY`.
+**Problem**: `playwright.config.ts`'s `webServer.env` now pins `APP_CURRENCY: "USD"` and `APP_TIMEZONE: "America/New_York"`, which fixes the case the previous review reproduced. But `webServer.reuseExistingServer` is `!process.env.CI`, i.e. `true` for any local run, and Playwright's server-reuse check only tests whether something is listening on `localhost:3000` — it does not check whether that process was started with the pinned env. I reproduced this directly: with a `npm run dev` server already up (started with this repo's own `.env.local`, which sets `APP_CURRENCY=INR`), `UI_GALLERY=1 npx playwright test -g "AC-11"` failed waiting for `+$42.50` because the page actually rendered `+₹42.50`; killing that server and re-running the identical command against a Playwright-spawned server passed. This is not a hypothetical — leaving a dev server running in one terminal while running tests in another is a completely ordinary workflow, `AGENTS.md`'s own Commands section lists `npm run dev` as the standard way to work, and this project's actual `.env.local` (`APP_CURRENCY=INR`) reproduces the failure verbatim.
 
-**Why it matters**: a developer running the documented command with their own `.env.local` gets two failures that look like product bugs and are not, which erodes trust in the suite exactly the way `docs/design.md`'s "the CSS is right" philosophy is trying to avoid for tokens.
+**Why it matters**: this is the same class of problem the fix was meant to close — a developer running the documented `npm run test:e2e` command on an unmodified machine gets a failure that reads as a product bug (wrong currency symbol) and is not. It is strictly better than before (the previously-reproduced "always fails, even with a fresh server" case is fixed), but the fix's own comment in the config ("If you already have a dev server up without it, stop that server or the gallery tests will 404") only anticipates the `UI_GALLERY`-missing case, not this one, so a developer hitting this has no signpost telling them why.
 
-**Suggested fix**: set `APP_CURRENCY: "USD"` in `playwright.config.ts`'s `webServer.env`, alongside the existing `UI_GALLERY` override, so the gallery's currency is deterministic regardless of the developer's own `.env.local`.
+**Suggested fix**: either extend the existing comment to cover the currency/timezone case too (cheapest, matches how the `UI_GALLERY` risk is already documented), or make the tests resilient to the configured currency by reading `APP_CURRENCY`/`APP_TIMEZONE` from the environment in the test file instead of hardcoding `$`-formatted strings.
 
-### 🟡 The 44×44 target-size test only passes under a production build, `tests/e2e/design-system.spec.ts:187`
+### 🟡 `verify.md`'s recorded test counts are stale after the fix commit, `docs/specs/0003-design-system-ui-foundation/verify.md:9`
 
-**Problem**: "every interactive target clears 44 by 44 (AC-14)" scans `a:visible, button:visible, select:visible, input:visible`. Run against `npm run dev` (the default `webServer.command` when `CI` is unset, i.e. any local `npm run test:e2e`), it fails on `"Open Next.js Dev Tools (32x32)"` — Next 16's built-in dev-mode indicator button, which is not part of the shipped app. I reproduced this directly: the test fails under plain `UI_GALLERY=1 npx playwright test`, and passes once `CI=1` forces the config's `npm run build && npm run start` path.
+**Problem**: `npm run test → 93 pass` was recorded on 2026-08-19, before `tests/unit/env.test.ts` added 9 tests for the `UI_GALLERY` regression. The suite now runs 105 tests (I ran it: `Test Files 6 passed (6)`, `Tests 105 passed (105)`). The verify doc was not touched by the fix commit.
 
-**Why it matters**: same class of problem as the currency one above — the documented local command produces a failure unrelated to anything in this PR, on a machine that has done nothing wrong.
+**Why it matters**: small, but this file's entire purpose is to be the reproducible record `/check verify` re-runs and trusts; a stale count is the first thing to make a reader wonder what else in the file wasn't updated.
 
-**Suggested fix**: filter out `[data-nextjs-dev-tools-button]` (or the framework's dev-indicator container) from the target scan, or scope the selector to `main` / a `data-testid` boundary that excludes framework chrome.
-
-### 🟡 `AppNav`'s default nav items point at routes that do not exist yet, producing console 404s, `components/ui/AppNav.tsx:1`, `components/ui/AppShell.tsx:16`
-
-**Problem**: `AppShell`'s default `navItems` (and the gallery's override) include `/transactions` and `/breakdown`. I confirmed both return a real `404` from the dev server. `next/link` prefetches viewport-visible links by default, so these two produce console-visible failed requests on every load of `/design`. This is already called out as **open** in `docs/specs/0003-design-system-ui-foundation/verify.md:17`, so it's known, not new — flagging it here because it is the *default* `navItems` in `AppShell`, not just a gallery artifact, so it will still be there the moment a real route mounts `AppShell` before features 7/8 exist.
-
-**Why it matters**: noisy, expected-but-unresolved console errors make a genuine regression harder to spot later, and AC-9's manual check row explicitly asks for "no console error."
-
-**Suggested fix**: none required for this PR specifically (tracked already), but consider `prefetch={false}` on tabs whose target route doesn't exist yet, removable once features 7/8 land.
-
-### 🟡 `AmountInput`'s adornment padding assumes a ~2 character glyph; `currencySymbol()` can return more, `components/ui/AmountInput.tsx:51`, `lib/money.ts:59`
-
-**Problem**: the input reserves `calc(--spacing(3) + 2ch)` of left padding for the currency adornment. `currencySymbol()` falls back to the ISO code (or Intl's longer display form) when a locale has no distinct glyph — verified directly: `Intl.NumberFormat("en-US", {style:"currency", currency:"KWD"}).formatToParts(0)` yields `"KWD"` (3 chars), and `"XPF"` yields `"CFPF"` (4 chars). `tests/unit/money.test.ts` explicitly exercises `KWD` and `XPF` in `currencySymbol`'s own test, so this is a known-reachable case for the function, just not for the component that consumes it.
-
-**Why it matters**: low risk today since `APP_CURRENCY` is fixed to `USD` for this single-user app, but `currencySymbol()` is written as a general-purpose function and `AmountInput` is a shared component; a future currency change would produce visibly overlapping text with no test catching it (the e2e suite never sets a non-glyph currency).
-
-**Suggested fix**: either size the padding off the actual rendered symbol length (e.g. `ch` count derived from `symbol.length`), or accept the constraint explicitly in a comment near `AmountInput` the way other trade-offs in this PR are documented.
-
-### 🟡 `formatCents()` divides by 100 regardless of a currency's real minor-unit count; this PR's own tests and `verify.md` normalize the result rather than flag it, `lib/money.ts:36`, `tests/unit/money.test.ts:39`, `docs/specs/0003-design-system-ui-foundation/verify.md:29`
-
-**Problem**: not introduced by this diff — `formatCents` is unchanged here, only `currencySymbol` was added alongside it — so this is a `lib/money.ts` / spec 0001 defect, not a spec 0003 one. Flagging because this PR's own additions document the wrong behavior as correct: `tests/unit/money.test.ts:39` asserts `formatCents(1250, "JPY", "en-US") === "¥13"`, and `verify.md:29` records "amounts show no decimal places, since Intl knows JPY has none, and nothing in a component rounds" as a passing check. Both are true statements about *how* it renders, but neither checks that the *magnitude* is right. If `1250` were meant to represent ¥1,250 (the natural reading of "cents" for a currency whose smallest unit is 1 yen), the correct render is `¥1,250`, not `¥13` — the code silently divides by 100 a second time on top of Intl's own zero-decimal formatting.
-
-**Why it matters**: `AGENTS.md` rule 3 — "a wrong money figure shown confidently is worse than an honest error" — is exactly what this produces for any zero-decimal currency, and it would sail through `/check verify` again next time, since the verify step's own JPY row doesn't check the number.
-
-**Suggested fix**: out of scope for this PR (belongs to `lib/money.ts` / spec 0001). Worth a follow-up: either document `APP_CURRENCY` as "must have a minor unit of exactly 100" as a stated constraint, or make `formatCents`/`currencySymbol` handle zero-decimal currencies correctly.
+**Suggested fix**: bump the count next time verify.md is touched; not worth a commit on its own.
 
 ## Nits
 
-- ⚪ `app/error.tsx:16`, the default export is internally named `GlobalError`, but this file is the route-level `error.tsx`, not `global-error.tsx` — the name invites confusion with the different root-level boundary Next.js also supports.
-- ⚪ `components/ui/Skeleton.tsx:33`, `role="status"` already implies `aria-live="polite"` per the ARIA spec; both are set explicitly. Harmless, just redundant.
-- ⚪ `docs/scope/scope.md:66` / `docs/specs/0003.../index.md:190`, build-plan step 5 is checked off as "Wire `AppShell` into a signed in route group," but no route group exists yet in this diff — only the gallery consumes `AppShell`. Matches the spec's own follow-up note that feature 5 owns this, but the checkbox slightly overstates what landed.
-- ⚪ `AGENTS.md` still describes `components/` as flat and doesn't list `lucide-react`/`clsx`/`tailwind-merge`/`@axe-core/playwright` or the `accessibility` skill; the spec's own Follow-up list already flags this for `/sync`, so not a defect in this PR, just noting it's still open.
+- ⚪ `app/error.tsx:16`, the default export is internally named `GlobalError`, but this is the route-level `error.tsx`, not the different `global-error.tsx` boundary Next also supports — same naming nit as the previous review, still unaddressed, still harmless.
+- ⚪ `components/ui/Skeleton.tsx:33`, `role="status"` already implies `aria-live="polite"`; both are set explicitly. Redundant, not wrong.
+- ⚪ `AGENTS.md` still describes `components/` as flat and doesn't list `lucide-react`/`clsx`/`tailwind-merge`/`@axe-core/playwright` or the `accessibility` skill. The spec's own Follow-up list already flags this for `/sync`; not a defect in this PR.
+- ⚪ `components/ui/AmountInput.tsx:51`, the adornment's `2ch` left padding assumes a short currency glyph; `currencySymbol()` can return up to 4 characters for some ISO codes (verified: `XPF` → `"CFPF"`). Low risk while `APP_CURRENCY` is fixed to a short-glyph currency; carried from the previous review, still unaddressed, still not blocking.
 
 ## Strengths
 
-- `tests/unit/tokens.test.ts` re-derives real WCAG contrast ratios from the OKLCH values in `app/globals.css` on every run — a design-token regression fails the build instead of waiting for someone to notice a chip looks off. Unusually rigorous for this kind of PR.
-- The exhaustive `Record<CategoryColor, string>` pattern (`CategoryChip`) is not just asserted by convention — `tests/e2e/design-system.spec.ts:128` reads computed `background-color` in a production build, which is the one place an interpolated Tailwind class would actually fail silently. Good instinct to test the failure mode, not just the happy path.
-- `ListRow`'s "wrap rather than crush" layout for AC-13, with the comment explaining why `min-w-20` is tuned rather than arbitrary, is a genuinely well-reasoned solution to a real constraint (320px, chip + amount + two actions).
-- `docs/accessibility-pass.md` is honest about what's actually been verified (automated tooling, accessibility tree) versus what's still owed (a real screen reader), rather than blurring the two — matches the project's stated preference for an honest gap over a confident gloss.
-- Every reviewed component stayed within its stated contract: `Amount`/`DateDisplay` never format independently of `lib/money.ts`/`lib/time.ts`, `AppNav` remains the only client component, and no hex/`rgb()` values or interpolated Tailwind classes were found anywhere in `components/` or `app/`.
+- The `UI_GALLERY` fix is genuinely well done, not just patched: `tests/unit/env.test.ts` locks the exact regression (`UI_GALLERY: ""` must not fail `APP_CURRENCY` too), plus the "is false when absent," the four valid values, and — importantly — that a real typo (`"yes"`, `"TRUE"`, `" 1"` with a leading space) still throws. I verified the schema by hand outside the test file too: it accepts `""` and `undefined` alike, and still rejects anything else. The fix does not weaken typo detection at all, which was the risk worth checking.
+- The dev-toolbar skip in the 44×44 sweep is specific rather than a blanket exclusion: it checks the actual `data-nextjs-dev-tools-button` attribute Next 16 puts on the element (I found it in `node_modules/next/dist/compiled/next-devtools/index.js`), not a guess at a selector. I confirmed the fix live: the test failed before removing a stale dev server assumption and passed cleanly against a fresh one.
+- `tests/unit/tokens.test.ts` re-derives real WCAG contrast ratios from the OKLCH values in `app/globals.css` on every run, so a design-token regression fails the build instead of waiting for someone to notice a chip looks off.
+- The exhaustive `Record<CategoryColor, string>` pattern in `CategoryChip` is tested at the one place an interpolated Tailwind class would actually fail silently: `tests/e2e/design-system.spec.ts` reads computed `background-color` in a production build, not just the class list.
+- `docs/accessibility-pass.md` is honest about what's verified (automated tooling, the accessibility tree) versus what's owed (a real screen reader), and `docs/scope/scope.md` correctly leaves the "Build it" checkbox unchecked pending that pass — no confident gloss over an acknowledged gap.
+- Every reviewed component held its contract: `Amount`/`DateDisplay` never format independently of `lib/money.ts`/`lib/time.ts`, `AppNav` remains the only client component, and no hex/`rgb()` value or interpolated Tailwind class exists anywhere in `components/` or `app/` (confirmed by re-running the grep from `verify.md` and by reading every changed component file directly).
 
 ## Test coverage
 
-Strong for what's testable by machine: unit tests lock `formatCents`, `currencySymbol`, `formatPlainDate`, and the token contrast/distinctness contract with real arithmetic, not snapshots. e2e covers axe (both themes, both gallery routes), keyboard order, focus-ring visibility, reduced motion, 320px truncation, and touch targets. Gaps found during review: two e2e assertions are coupled to an unpinned `APP_CURRENCY` and the local (non-CI) `webServer` command in ways that make `npm run test:e2e` non-portable across developer machines, even though CI itself is unaffected — see the two Minor findings above. AC-8 (the human screen-reader pass) is honestly tracked as not-yet-done in `docs/accessibility-pass.md` and `docs/scope/scope.md`, which is correct and not a finding.
+Strong for what's machine-checkable: unit tests lock `formatCents`, `currencySymbol`, `formatPlainDate`, the token contrast/distinctness contract, and now the `UI_GALLERY` env regression with real assertions, not snapshots. e2e covers axe (both themes, both gallery routes), keyboard order, focus-ring visibility, reduced motion, 320px truncation, and touch targets, and I re-ran the target-size and axe-adjacent tests directly against a live dev server rather than trusting the suite's own green state. The one gap found this pass — `APP_CURRENCY`/`APP_TIMEZONE` assertions in `tests/e2e/design-system.spec.ts` still being sensitive to whatever server Playwright happens to reuse locally — is documented above as Minor rather than Major because CI is unaffected (CI always builds fresh) and it fails loud and immediately rather than passing silently wrong. AC-8 (the human screen-reader pass) remains honestly tracked as not-yet-done, which is correct and not a finding.
+
+## Carried forward, not re-litigated
+
+Two items the branch author already decided not to fix in this PR, both still present and both still reasonable to leave for a later feature:
+
+- `AppNav`'s default `navItems` point at `/transactions` and `/breakdown`, which don't exist yet, so `/design` logs two console 404s from `next/link` prefetch. Tracked as **open** in `verify.md`; will resolve itself once features 7 and 8 land.
+- `formatCents()` divides by 100 regardless of a currency's real minor-unit count (`formatCents(1250, "JPY")` → `"¥13"`, not `"¥1,250"`). This lives in `lib/money.ts` under spec 0001 and is unchanged by this diff; out of scope here.
