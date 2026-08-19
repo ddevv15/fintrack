@@ -5,21 +5,21 @@ import { describe, expect, rows, test as base } from "./fixtures";
 /**
  * Money adds up exactly, proved rather than declared.
  *
- * Integer cents in a bigint column cannot drift, but that is a claim until
+ * Whole minor units in a bigint column cannot drift, but that is a claim until
  * something checks it against real rows. These amounts are chosen to expose a
  * decimal column: values whose sum is not representable in binary floating
  * point, and one large enough to catch a narrower integer type.
  */
 
 const amounts = [10, 20, 1, 2, 999_999_999, 7, 33_333, 66_667];
-const expectedTotal = amounts.reduce((sum, cents) => sum + cents, 0);
+const expectedTotal = amounts.reduce((sum, amount) => sum + amount, 0);
 
 const test = base.extend<{ categoryId: string }>({
   categoryId: [
     async ({ scratch }, use) => {
       const category = await scratch.category();
-      for (const amount_cents of amounts) {
-        await scratch.log(category, { amount_cents });
+      for (const amount_minor of amounts) {
+        await scratch.log(category, { amount_minor });
       }
       await use(category.id);
     },
@@ -40,7 +40,7 @@ describe("amounts survive the round trip and the sum", () => {
         .select()
         .eq("category_id", categoryId),
     );
-    expect(logged.map((row) => row.amount_cents).sort((x, y) => x - y)).toEqual(
+    expect(logged.map((row) => row.amount_minor).sort((x, y) => x - y)).toEqual(
       [...amounts].sort((x, y) => x - y),
     );
   });
@@ -54,7 +54,7 @@ describe("amounts survive the round trip and the sum", () => {
         .select()
         .eq("category_id", categoryId),
     );
-    const total = logged.reduce((sum, row) => sum + row.amount_cents, 0);
+    const total = logged.reduce((sum, row) => sum + row.amount_minor, 0);
     expect(total).toBe(expectedTotal);
   });
 
@@ -73,7 +73,7 @@ describe("amounts survive the round trip and the sum", () => {
         .eq("category_id", categoryId),
     );
     for (const row of logged) {
-      expect(Number.isSafeInteger(row.amount_cents)).toBe(true);
+      expect(Number.isSafeInteger(row.amount_minor)).toBe(true);
     }
   });
 });

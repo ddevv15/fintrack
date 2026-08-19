@@ -160,7 +160,7 @@ export type Scratch = {
   category(kind?: EntryDirection): Promise<Category>;
   log(
     category: Category,
-    fields: { amount_cents: number; merchant?: string; note?: string },
+    fields: { amount_minor: number; merchant?: string; note?: string },
   ): Promise<Transaction>;
 };
 

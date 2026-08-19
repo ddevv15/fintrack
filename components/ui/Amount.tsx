@@ -1,27 +1,32 @@
-import { formatCents, type Cents } from "@/lib/money";
+import { formatAmount, type MinorUnits } from "@/lib/money";
 import { cn } from "@/lib/ui";
 
 /**
  * Money, rendered on the server.
  *
- * This component does no arithmetic. It calls formatCents() and nothing else,
- * because spec 0001 rule 1 puts every division of a cents value in lib/money.ts
- * and keeps it there.
+ * This component does no arithmetic. It calls formatAmount() and nothing else,
+ * because spec 0001 rule 1, as spec 0004 corrects it, puts every division of an
+ * amount in lib/money.ts and keeps it there.
  *
- * It must stay a Server Component: formatCents() defaults its currency from
+ * It must stay a Server Component: formatAmount() defaults its currency from
  * APP_CURRENCY, which is server only. A Client Component that has to show money
- * takes the already formatted string as a prop, so cents and the currency code
- * never reach the browser (AC-10).
+ * takes the already formatted string as a prop, so the amount and the currency
+ * code never reach the browser (AC-10).
  */
 type AmountProps = {
-  cents: Cents;
+  amount: MinorUnits;
   direction: "spend" | "income";
   currency?: string;
   className?: string;
 };
 
-export function Amount({ cents, direction, currency, className }: AmountProps) {
-  const formatted = formatCents(cents, currency);
+export function Amount({
+  amount,
+  direction,
+  currency,
+  className,
+}: AmountProps) {
+  const formatted = formatAmount(amount, currency);
 
   return (
     <span

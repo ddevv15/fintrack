@@ -20,13 +20,13 @@ describe("timestamps are the database's, not the app's", () => {
   }) => {
     // covers: AC-1
     const category = await scratch.category();
-    const logged = await scratch.log(category, { amount_cents: 500 });
+    const logged = await scratch.log(category, { amount_minor: 500 });
 
     assertOk(
       "Editing the amount",
       await accountA.client.database
         .from("transactions")
-        .update({ amount_cents: 600 })
+        .update({ amount_minor: 600 })
         .eq("id", logged.id),
     );
 
@@ -39,7 +39,7 @@ describe("timestamps are the database's, not the app's", () => {
         .eq("id", logged.id),
     );
 
-    expect(edited.amount_cents).toBe(600);
+    expect(edited.amount_minor).toBe(600);
     expect(edited.created_at, "created_at must never move").toBe(
       logged.created_at,
     );
@@ -97,7 +97,7 @@ describe("the order a picker shows categories in", () => {
   }) => {
     // covers: AC-5
     const category = await scratch.category();
-    const logged = await scratch.log(category, { amount_cents: 250 });
+    const logged = await scratch.log(category, { amount_minor: 250 });
 
     assertOk(
       "Hiding a category with history",

@@ -151,7 +151,7 @@ All in `components/ui/`. Every one renders on the server except `AppNav`.
 | `EmptyState` | `title`, `body`, `action` | Dashed border, so it reads as deliberate rather than as a failure |
 | `ErrorState` | `title`, `detail`, `retryAction` | Shows the real message. Retry is a `<form>` posting a server action, never an `onClick`, which is what keeps this on the server |
 | `Skeleton` | `label` (required), `variant`, `count` | Blocks are `aria-hidden`; a polite live region announces `label`. The label is required so two loading sections are told apart |
-| `Amount` | `cents`, `direction`, `currency?` | Calls `formatCents()` and nothing else. Income gets a leading `+` and the income colour; spend is plain |
+| `Amount` | `amount`, `direction`, `currency?` | Calls `formatAmount()` and nothing else. Income gets a leading `+` and the income colour; spend is plain |
 | `DateDisplay` | `date`, `format` | A `<time>` element carrying the raw `PlainDate` in `dateTime` |
 | `CategoryChip` | `name`, `color` | Colour dot plus the name, always. Colour comes from an exhaustive literal map |
 
@@ -187,7 +187,7 @@ screen reader pass is in [accessibility-pass.md](accessibility-pass.md).
 |---|---|
 | `text-fg-muted` | `text-gray-500`, `#666`, `rgb(...)` |
 | `bg-category-blue` from an exhaustive map | `` `bg-category-${color}` `` |
-| `<Amount cents={n} direction="spend" />` | `{(cents / 100).toFixed(2)}` |
+| `<Amount amount={n} direction="spend" />` | `{(amount / 100).toFixed(2)}` |
 | `<DateDisplay date={d} />` | `new Date(d).toLocaleDateString()` |
 | `focus-ring` | a per component `focus:ring-2 focus:ring-blue-500` |
 | `<ErrorState detail={realMessage} />` | rendering `0`, `—`, or an empty list on failure |

@@ -15,7 +15,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | done |
-| 5 | Sign in and your account | Release 1 | planned |
+| 5 | Sign in and your account | Release 1 | in-progress |
 | 6 | Log a spend | Release 1 | planned |
 | 7 | This month's transactions | Release 1 | planned |
 | 8 | Where your money went | Release 1 | planned |
@@ -79,10 +79,19 @@ _Shipped with AC-8 accepted as owed: the manual screen reader pass is still outs
 
 The smallest version you would genuinely open every day: one account, log a spend, see where the month went. Nothing else. (basis: smallest usable product, so real use tells you what to build next)
 
-### 5. Sign in and your account · needs a decision · Beta
+### 5. Sign in and your account · Beta
+spec [0004](../specs/0004-sign-in-and-your-account/index.md)
 One account that is yours, so your data follows you from laptop to phone. No sharing, no other people.
 **Done when:** you can create the account, sign in, stay signed in between visits, sign out, and get back in if you forget how; nothing readable without being signed in. (basis: OWASP authentication guidance; bumped to Beta because this one guards everything else)
-- [ ] Design it (spec): `/architect sign in and your account`
+- [x] Design it (spec): `/architect sign in and your account`
+- [ ] Build it: `/develop sign in and your account`
+  - [x] Rename cents to minor units everywhere, so an amount stops asserting two decimal places (AC-9)
+  - [ ] The currency list, the two new profile columns, both guarding triggers, and the settings loader that money and time now read from (AC-10, AC-11, AC-12, AC-13, AC-15)
+  - [ ] Sign up, verify by code, sign in, sign out, and close every route, landing on a placeholder home (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6)
+  - [ ] Password recovery, the one time setup screen, and Google sign in (AC-3, AC-7, AC-14)
+  - [ ] Account settings, deletion through the edge function, attempt limiting, and the proving tests (AC-8, AC-11, AC-12, AC-16, AC-17, AC-18, AC-19)
+- [ ] Verify it: `/check verify sign in and your account`
+- [ ] Test it: `/test sign in and your account`
 
 ### 6. Log a spend
 The screen you will use more than any other: amount, date, category, optional note, saved in seconds.

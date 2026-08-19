@@ -34,7 +34,7 @@ describe("the live tables still match lib/schema.ts", () => {
   test("transactions", async ({ accountA, scratch }) => {
     const category = await scratch.category();
     await scratch.log(category, {
-      amount_cents: 1234,
+      amount_minor: 1234,
       merchant: "Drift Check",
       note: "written so this table has a row to read",
     });
@@ -52,7 +52,7 @@ describe("the live tables still match lib/schema.ts", () => {
     scratch,
   }) => {
     const category = await scratch.category();
-    const logged = await scratch.log(category, { amount_cents: 700 });
+    const logged = await scratch.log(category, { amount_minor: 700 });
 
     const row = one(
       transactionSchema,

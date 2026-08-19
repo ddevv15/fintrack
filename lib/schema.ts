@@ -81,18 +81,22 @@ function nullableToUndefined<T extends z.ZodType>(inner: T) {
 }
 
 /**
- * Whole cents, as a bigint column arrives.
+ * Whole minor units, as a bigint column arrives.
+ *
+ * A minor unit is the smallest unit the currency has, so how many of them make
+ * one of anything you would say out loud is a fact about the currency and lives
+ * in lib/currency.ts, never here.
  *
  * PostgREST may render a bigint as a JSON number or as a string depending on
  * the driver, so both are accepted and normalised to one number. The safe
  * integer check is the guarantee that matters: past 2^53 a JavaScript number
  * silently stops being exact, and this is a money app.
  */
-const centsSchema = z
+const minorUnitsSchema = z
   .union([z.number(), z.string().regex(/^-?\d+$/)])
   .transform((value) => (typeof value === "string" ? Number(value) : value))
-  .refine(Number.isSafeInteger, "money must be a whole number of cents")
-  .refine((cents) => cents > 0, "amount must be above zero");
+  .refine(Number.isSafeInteger, "money must be a whole number of minor units")
+  .refine((amount) => amount > 0, "amount must be above zero");
 
 /** One person's profile row. Created by the database, never by the app. */
 export const profileSchema = z.object({
@@ -140,7 +144,7 @@ export const transactionSchema = z.object({
   user_id: z.uuid(),
   category_id: z.uuid(),
   direction: entryDirectionSchema,
-  amount_cents: centsSchema,
+  amount_minor: minorUnitsSchema,
   occurred_on: plainDateSchema,
   merchant: nullableToUndefined(z.string().max(200)),
   note: nullableToUndefined(z.string().max(500)),
@@ -159,7 +163,7 @@ export type Transaction = z.infer<typeof transactionSchema>;
 export const transactionInsertSchema = z.object({
   category_id: z.uuid(),
   direction: entryDirectionSchema,
-  amount_cents: centsSchema,
+  amount_minor: minorUnitsSchema,
   occurred_on: plainDateSchema,
   merchant: z.string().max(200).optional(),
   note: z.string().max(500).optional(),
