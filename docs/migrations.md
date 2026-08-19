@@ -79,8 +79,9 @@ in, do their work, and clean up their own rows between runs.
 Two runs can safely overlap, which matters because you may run the suite locally
 while CI runs it on a push. Both accounts are fixed and shared, so a run never
 writes against a starting category. It creates its own categories, named with a
-tag unique to that run, and every fixture hangs off one of them; cleanup then
-deletes by category rather than by account.
+tag unique to that run, and every fixture hangs off one of them. Cleanup then
+deletes the exact ids it created, so it cannot reach another run's rows or
+another suite's.
 
 The database is what makes that safe rather than the odds. Category names are
 unique per account and per kind, so two runs drawing the same tag cannot quietly

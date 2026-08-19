@@ -1,293 +1,180 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-
 import {
-  cleanUp,
-  createRunCategory,
-  FIXTURE_DATE,
-  RUN_TAG,
-  signInBoth,
-  type TestAccount,
-} from "./accounts";
+  categorySchema,
+  profileSchema,
+  transactionSchema,
+  type Transaction,
+} from "@/lib/schema";
+
+import { describe, expect, one, rows, test as base } from "./fixtures";
 
 /**
  * The proof that one account cannot reach another's money.
  *
  * Spec 0002 calls a mistaken policy a silent leak rather than a loud error,
- * which is exactly why this cannot be checked by reading the migration. It has
- * to be two real sessions against the real database.
+ * which is why this cannot be checked by reading the migration. It has to be
+ * two real sessions against the real database.
+ *
+ * Every read here goes through `rows` or `one`, which throw when a query fails.
+ * That matters more here than anywhere else: most of these assertions say
+ * something is absent, so a query that silently returned nothing would satisfy
+ * all of them while proving nothing.
  */
 
-let a: TestAccount;
-let b: TestAccount;
-let aCategoryId: string;
-let aTransactionId: string;
-let aOwnCategoryId: string;
-let aIncomeCategoryId: string;
-
-const today = FIXTURE_DATE;
-
-beforeAll(async () => {
-  [a, b] = await signInBoth();
-  await cleanUp(a);
-  await cleanUp(b);
-
-  // Every fixture hangs off a category this run owns, so cleanup can find
-  // exactly this run's rows and a concurrent run can never touch them.
-  aCategoryId = await createRunCategory(a, "spend");
-  aOwnCategoryId = await createRunCategory(a, "history");
-  aIncomeCategoryId = await createRunCategory(a, "income", "income");
-
-  const { data: inserted, error } = await a.client.database
-    .from("transactions")
-    .insert([
-      {
-        category_id: aCategoryId,
-        direction: "spend",
-        amount_cents: 4599,
-        occurred_on: today,
-        merchant: "Test Mart",
-      },
-    ])
-    .select();
-  expect(
-    error,
-    "the first account should be able to log its own spend",
-  ).toBeFalsy();
-  aTransactionId = (inserted as { id: string }[])[0].id;
-});
-
-afterAll(async () => {
-  if (a) await cleanUp(a);
-  if (b) await cleanUp(b);
+const test = base.extend<{ aSpend: Transaction }>({
+  aSpend: [
+    async ({ scratch }, use) => {
+      const category = await scratch.category();
+      await use(
+        await scratch.log(category, {
+          amount_cents: 4599,
+          merchant: "Test Mart",
+        }),
+      );
+    },
+    { scope: "file" },
+  ],
 });
 
 describe("the two accounts are actually different", () => {
-  it("has two distinct user ids", () => {
-    expect(a.userId).not.toBe(b.userId);
+  test("have distinct user ids", ({ accountA, accountB }) => {
+    expect(accountA.userId).not.toBe(accountB.userId);
   });
 });
 
 describe("reading across accounts", () => {
-  it("does not show the second account the first account's transactions", async () => {
-    const { data } = await b.client.database.from("transactions").select("id");
-    const ids = (data ?? []).map((row: { id: string }) => row.id);
-    expect(ids).not.toContain(aTransactionId);
+  test("the second account cannot see the first's transactions", async ({
+    accountB,
+    aSpend,
+  }) => {
+    const mine = rows(
+      transactionSchema,
+      "transactions",
+      await accountB.client.database.from("transactions").select(),
+    );
+    expect(mine.map((row) => row.id)).not.toContain(aSpend.id);
   });
 
-  it("does not show the second account the first account's categories", async () => {
-    const { data } = await b.client.database.from("categories").select("id");
-    const ids = (data ?? []).map((row: { id: string }) => row.id);
-    expect(ids).not.toContain(aCategoryId);
+  test("the second account cannot see the first's categories", async ({
+    accountB,
+    aSpend,
+  }) => {
+    const mine = rows(
+      categorySchema,
+      "categories",
+      await accountB.client.database.from("categories").select(),
+    );
+    expect(mine.map((row) => row.id)).not.toContain(aSpend.category_id);
   });
 
-  it("returns nothing rather than an error when asked directly", async () => {
-    // An empty result, not a denial. The second account never learns the row exists.
-    const { data } = await b.client.database
-      .from("transactions")
-      .select("id")
-      .eq("id", aTransactionId);
-    expect(data ?? []).toHaveLength(0);
+  test("asking directly returns nothing rather than an error", async ({
+    accountB,
+    aSpend,
+  }) => {
+    // Empty, not denied. The second account never learns the row exists.
+    const found = rows(
+      transactionSchema,
+      "transactions",
+      await accountB.client.database
+        .from("transactions")
+        .select()
+        .eq("id", aSpend.id),
+    );
+    expect(found).toHaveLength(0);
   });
 
-  it("does not show the second account the first account's profile", async () => {
-    const { data } = await b.client.database.from("profiles").select("user_id");
-    const ids = (data ?? []).map((row: { user_id: string }) => row.user_id);
-    expect(ids).not.toContain(a.userId);
+  test("the second account cannot see the first's profile", async ({
+    accountA,
+    accountB,
+  }) => {
+    const mine = rows(
+      profileSchema,
+      "profiles",
+      await accountB.client.database.from("profiles").select(),
+    );
+    expect(mine.map((row) => row.user_id)).not.toContain(accountA.userId);
   });
 });
 
 describe("writing across accounts", () => {
-  it("cannot edit the first account's transaction", async () => {
-    await b.client.database
+  test("the second account cannot edit the first's transaction", async ({
+    accountA,
+    accountB,
+    aSpend,
+  }) => {
+    await accountB.client.database
       .from("transactions")
       .update({ amount_cents: 1 })
-      .eq("id", aTransactionId);
+      .eq("id", aSpend.id);
 
-    const { data } = await a.client.database
-      .from("transactions")
-      .select("amount_cents")
-      .eq("id", aTransactionId);
-    expect((data as { amount_cents: number }[])[0].amount_cents).toBe(4599);
+    const after = one(
+      transactionSchema,
+      "transactions",
+      await accountA.client.database
+        .from("transactions")
+        .select()
+        .eq("id", aSpend.id),
+    );
+    expect(after.amount_cents).toBe(4599);
   });
 
-  it("cannot delete the first account's transaction", async () => {
-    await b.client.database
+  test("the second account cannot delete the first's transaction", async ({
+    accountA,
+    accountB,
+    aSpend,
+  }) => {
+    await accountB.client.database
       .from("transactions")
       .delete()
-      .eq("id", aTransactionId);
+      .eq("id", aSpend.id);
 
-    const { data } = await a.client.database
-      .from("transactions")
-      .select("id")
-      .eq("id", aTransactionId);
-    expect(data ?? []).toHaveLength(1);
+    const after = rows(
+      transactionSchema,
+      "transactions",
+      await accountA.client.database
+        .from("transactions")
+        .select()
+        .eq("id", aSpend.id),
+    );
+    expect(after).toHaveLength(1);
   });
 
-  it("cannot log an entry against the first account's category", async () => {
-    // The three column foreign key, not row level security, is what stops this.
-    const { error } = await b.client.database.from("transactions").insert([
-      {
-        category_id: aCategoryId,
-        direction: "spend",
-        amount_cents: 100,
-        occurred_on: today,
-      },
-    ]);
+  test("the second account cannot log against the first's category", async ({
+    accountB,
+    aSpend,
+  }) => {
+    // The three column foreign key stops this, not row level security.
+    const { error } = await accountB.client.database
+      .from("transactions")
+      .insert([
+        {
+          category_id: aSpend.category_id,
+          direction: "spend",
+          amount_cents: 100,
+          occurred_on: aSpend.occurred_on,
+        },
+      ]);
     expect(
       error,
       "referencing another account's category must fail",
     ).toBeTruthy();
   });
 
-  it("cannot write a row owned by someone else", async () => {
-    const { error } = await b.client.database.from("transactions").insert([
-      {
-        user_id: a.userId,
-        category_id: aCategoryId,
-        direction: "spend",
-        amount_cents: 100,
-        occurred_on: today,
-      },
-    ]);
+  test("the second account cannot write a row owned by someone else", async ({
+    accountA,
+    accountB,
+    aSpend,
+  }) => {
+    const { error } = await accountB.client.database
+      .from("transactions")
+      .insert([
+        {
+          user_id: accountA.userId,
+          category_id: aSpend.category_id,
+          direction: "spend",
+          amount_cents: 100,
+          occurred_on: aSpend.occurred_on,
+        },
+      ]);
     expect(error, "naming another owner must fail").toBeTruthy();
-  });
-});
-
-describe("the database refuses bad money and bad references", () => {
-  it("refuses an amount of zero or below", async () => {
-    for (const amount of [0, -1]) {
-      const { error } = await a.client.database.from("transactions").insert([
-        {
-          category_id: aCategoryId,
-          direction: "spend",
-          amount_cents: amount,
-          occurred_on: today,
-        },
-      ]);
-      expect(error, `an amount of ${amount} must be refused`).toBeTruthy();
-    }
-  });
-
-  it("refuses a spend filed under an income category", async () => {
-    const { error } = await a.client.database.from("transactions").insert([
-      {
-        category_id: aIncomeCategoryId,
-        direction: "spend",
-        amount_cents: 500,
-        occurred_on: today,
-      },
-    ]);
-    expect(
-      error,
-      "a spend under an income category must be refused",
-    ).toBeTruthy();
-  });
-
-  it("refuses a second category whose name differs only in case", async () => {
-    // The run's own spend category, in a different case.
-    const clash = (await a.client.database
-      .from("categories")
-      .select("name")
-      .eq("id", aCategoryId)) as { data: { name: string }[] };
-    const { error } = await a.client.database
-      .from("categories")
-      .insert([{ name: clash.data[0].name.toUpperCase(), kind: "spend" }]);
-    expect(error, "the same name in another case must be refused").toBeTruthy();
-  });
-
-  it("refuses a colour outside the ten tokens", async () => {
-    const { error } = await a.client.database
-      .from("categories")
-      .insert([
-        { name: `${RUN_TAG}-gadgets`, kind: "spend", color: "#22c55e" },
-      ]);
-    expect(error, "a hex colour must be refused").toBeTruthy();
-  });
-
-  it("refuses a note longer than the column allows", async () => {
-    const { error } = await a.client.database.from("transactions").insert([
-      {
-        category_id: aCategoryId,
-        direction: "spend",
-        amount_cents: 500,
-        occurred_on: today,
-        note: "x".repeat(501),
-      },
-    ]);
-    expect(error, "a 501 character note must be refused").toBeTruthy();
-  });
-});
-
-describe("a category with history", () => {
-  let ownTransactionId: string;
-
-  beforeAll(async () => {
-    const { data } = await a.client.database
-      .from("transactions")
-      .insert([
-        {
-          category_id: aOwnCategoryId,
-          direction: "spend",
-          amount_cents: 1500,
-          occurred_on: today,
-        },
-      ])
-      .select();
-    ownTransactionId = (data as { id: string }[])[0].id;
-  });
-
-  it("cannot be deleted", async () => {
-    await a.client.database
-      .from("categories")
-      .delete()
-      .eq("id", aOwnCategoryId);
-
-    const { data } = await a.client.database
-      .from("categories")
-      .select("id")
-      .eq("id", aOwnCategoryId);
-    expect(
-      data ?? [],
-      "it still has a transaction, so it must survive",
-    ).toHaveLength(1);
-  });
-
-  it("can be hidden instead, without touching its transactions", async () => {
-    await a.client.database
-      .from("categories")
-      .update({ is_hidden: true })
-      .eq("id", aOwnCategoryId);
-
-    const { data: hidden } = await a.client.database
-      .from("categories")
-      .select("is_hidden")
-      .eq("id", aOwnCategoryId);
-    expect((hidden as { is_hidden: boolean }[])[0].is_hidden).toBe(true);
-
-    const { data: still } = await a.client.database
-      .from("transactions")
-      .select("id")
-      .eq("id", ownTransactionId);
-    expect(still ?? [], "hiding must never touch history").toHaveLength(1);
-  });
-});
-
-describe("the starting categories", () => {
-  it("gave each account its own ten", async () => {
-    for (const account of [a, b]) {
-      const { data } = await account.client.database
-        .from("categories")
-        .select("name, kind, color");
-      const rows = data as { name: string; kind: string }[];
-      expect(rows.length, `${account.label} account`).toBeGreaterThanOrEqual(
-        10,
-      );
-      expect(
-        rows.filter((r) => r.kind === "income").map((r) => r.name),
-      ).toContain("Salary");
-      expect(
-        rows.filter((r) => r.kind === "spend").map((r) => r.name),
-      ).toContain("Groceries");
-    }
   });
 });

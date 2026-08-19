@@ -1,102 +1,67 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { categorySchema, profileSchema, transactionSchema } from "@/lib/schema";
 
-import {
-  categorySchema,
-  parseRows,
-  profileSchema,
-  transactionSchema,
-} from "@/lib/schema";
-
-import {
-  cleanUp,
-  createRunCategory,
-  FIXTURE_DATE,
-  signIn,
-  type TestAccount,
-} from "./accounts";
+import { describe, expect, one, rows, test } from "./fixtures";
 
 /**
  * Does lib/schema.ts still describe the real tables?
  *
  * There is no ORM, so nothing else notices when a migration renames a column.
- * Left alone that arrives as undefined and becomes NaN inside a total, which
- * is the failure spec 0001 rule 11 exists to prevent. This turns it into a red
- * test run instead.
+ * Left alone that arrives as undefined and becomes NaN inside a total, which is
+ * the failure spec 0001 rule 11 exists to prevent. `rows` throws when a row
+ * does not match its schema, so every read in every suite is really a drift
+ * check; these three just make it the point rather than a side effect.
  */
 
-let account: TestAccount;
-let categoryId: string;
+describe("the live tables still match lib/schema.ts", () => {
+  test("profiles", async ({ accountA }) => {
+    const mine = rows(
+      profileSchema,
+      "profiles",
+      await accountA.client.database.from("profiles").select(),
+    );
+    expect(mine, "no profile row to check").not.toHaveLength(0);
+  });
 
-beforeAll(async () => {
-  account = await signIn(
-    "first",
-    "INSFORGE_TEST_EMAIL_A",
-    "INSFORGE_TEST_PASSWORD",
-  );
-  await cleanUp(account);
+  test("categories", async ({ accountA }) => {
+    const mine = rows(
+      categorySchema,
+      "categories",
+      await accountA.client.database.from("categories").select(),
+    );
+    expect(mine, "no category row to check").not.toHaveLength(0);
+  });
 
-  categoryId = await createRunCategory(account, "drift");
-
-  await account.client.database.from("transactions").insert([
-    {
-      category_id: categoryId,
-      direction: "spend",
+  test("transactions", async ({ accountA, scratch }) => {
+    const category = await scratch.category();
+    await scratch.log(category, {
       amount_cents: 1234,
-      occurred_on: FIXTURE_DATE,
       merchant: "Drift Check",
       note: "written so this table has a row to read",
-    },
-  ]);
-});
+    });
 
-afterAll(async () => {
-  if (account) await cleanUp(account);
-});
-
-describe("the live tables still match lib/schema.ts", () => {
-  it("profiles", async () => {
-    const { data, error } = await account.client.database
-      .from("profiles")
-      .select();
-    expect(error).toBeFalsy();
-    expect(data ?? [], "no profile row to check").not.toHaveLength(0);
-    expect(() => parseRows(profileSchema, "profiles", data)).not.toThrow();
+    const mine = rows(
+      transactionSchema,
+      "transactions",
+      await accountA.client.database.from("transactions").select(),
+    );
+    expect(mine, "no transaction row to check").not.toHaveLength(0);
   });
 
-  it("categories", async () => {
-    const { data, error } = await account.client.database
-      .from("categories")
-      .select();
-    expect(error).toBeFalsy();
-    expect(data ?? [], "no category row to check").not.toHaveLength(0);
-    expect(() => parseRows(categorySchema, "categories", data)).not.toThrow();
-  });
+  test("a nullable column comes back as undefined, never null", async ({
+    accountA,
+    scratch,
+  }) => {
+    const category = await scratch.category();
+    const logged = await scratch.log(category, { amount_cents: 700 });
 
-  it("transactions", async () => {
-    const { data, error } = await account.client.database
-      .from("transactions")
-      .select();
-    expect(error).toBeFalsy();
-    expect(data ?? [], "no transaction row to check").not.toHaveLength(0);
-    expect(() =>
-      parseRows(transactionSchema, "transactions", data),
-    ).not.toThrow();
-  });
-
-  it("keeps a nullable column as undefined rather than null", async () => {
-    const { data } = await account.client.database
-      .from("transactions")
-      .insert([
-        {
-          category_id: categoryId,
-          direction: "spend",
-          amount_cents: 700,
-          occurred_on: FIXTURE_DATE,
-        },
-      ])
-      .select();
-
-    const [row] = parseRows(transactionSchema, "transactions", data);
+    const row = one(
+      transactionSchema,
+      "transactions",
+      await accountA.client.database
+        .from("transactions")
+        .select()
+        .eq("id", logged.id),
+    );
     expect(row.merchant).toBeUndefined();
     expect(row.note).toBeUndefined();
   });

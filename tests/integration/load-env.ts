@@ -1,21 +1,16 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 /**
- * Load .env.local into process.env before the integration tests run.
+ * Load .env.local before the integration tests run.
  *
  * Next.js does this for the app but Vitest does not, and these tests talk to a
- * real backend, so they need the same values the app uses. Anything already set
- * in the environment wins, which is how CI supplies its own.
+ * real backend, so they need the same values the app uses.
+ *
+ * Node does the parsing. `process.loadEnvFile` leaves anything already set in
+ * the environment alone, which is exactly how CI supplies its own values, and
+ * it throws when the file is missing, which is the normal case in CI.
  */
-const envPath = resolve(process.cwd(), ".env.local");
-
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, "utf8").split("\n")) {
-    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
-    if (!match) continue;
-    const [, key, rawValue] = match;
-    if (process.env[key] !== undefined) continue;
-    process.env[key] = rawValue.trim().replace(/^["']|["']$/g, "");
-  }
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No .env.local, so the environment is expected to carry the values already.
+  // A missing one is reported by the first fixture that needs it, by name.
 }
