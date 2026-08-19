@@ -73,8 +73,35 @@ additive change: nothing here is dropped, retyped, or has a constraint relaxed.
 backend: it signs in as two accounts and proves neither can read or change the
 other's money, which is the one thing reading the migration cannot tell you.
 
-It needs three values in `.env.local`, listed in `.env.example`. The two
-accounts have to be signed up and verified by a person once, because this
-project requires email verification and a test cannot read an inbox. After that
-the tests sign in on their own and clean up their own rows between runs. They
-never delete the accounts, so that one time step stays done.
+It needs three values in `.env.local`, listed in `.env.example`. The tests sign
+in, do their work, and clean up their own rows between runs. They never delete
+the accounts, so the setup below stays done.
+
+### Recreating the two test accounts
+
+The accounts live at `fintrack-test-a@fintrack.invalid` and
+`fintrack-test-b@fintrack.invalid`. `.invalid` is reserved and unroutable, so no
+mail can ever leave for them, which is deliberate.
+
+That does mean they cannot verify by email, and this project requires
+verification. So they are verified directly, which is a row level data fix on
+two throwaway rows rather than a schema change:
+
+1. Put both addresses and one shared password in `.env.local`.
+2. Sign both up through the SDK. The call returns a 500 because the
+   verification email cannot be delivered; the account is still created, and
+   the trigger still gives it a profile and ten categories.
+3. Mark them verified:
+
+   ```sql
+   UPDATE auth.users SET email_verified = true
+   WHERE email IN ('fintrack-test-a@fintrack.invalid',
+                   'fintrack-test-b@fintrack.invalid');
+   ```
+
+4. `npm run test:integration` from then on.
+
+One thing to know about mail generally here: the sender is Resend's shared
+`onboarding@resend.dev`, which only delivers to the address on the Resend
+account. Every other recipient is refused with a 550. That is fine while you are
+the only real user, and feature 5 should decide whether to verify a domain.

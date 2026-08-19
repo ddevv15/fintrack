@@ -12,7 +12,7 @@ integration suite buys you.
 
 - [ ] `npm test` → 38 pass, no network touched → AC-6, AC-9
 - [ ] `npm run typecheck` → clean; types come from `z.infer`, never declared twice → AC-9
-- [ ] `npm run test:integration` → the whole suite green → AC-2, AC-3, AC-5, AC-6, AC-7, AC-10
+- [x] `npm run test:integration` → 24 pass → AC-2, AC-3, AC-5, AC-6, AC-7, AC-10
 - [ ] `npx @insforge/cli db tables` → `profiles`, `categories`, `transactions` → AC-1
 - [ ] `npx @insforge/cli db migrations list` → both migrations applied → AC-1
 
@@ -36,9 +36,9 @@ integration suite buys you.
 - [ ] Insert an amount of `0` and of `-500` → both refused → AC-6 _(proven by hand)_
 - [ ] Add a category named `groceries` next to `Groceries` → refused; add `Groceries` as an *income* category → succeeds → AC-6 _(proven by hand)_
 - [ ] Insert a 61 character category name, a 201 character merchant, a 501 character note, a 101 character display name, and a hex colour → each refused → AC-6 _(proven by hand)_
-- [ ] Sign in as a second account and try to read, edit, and delete the first account's transaction → read returns empty, edit and delete affect nothing, and the second account never learns the row exists → **AC-7, not yet proven, needs the test accounts**
+- [ ] Sign in as a second account and try to read, edit, and delete the first account's transaction → read returns empty, edit and delete affect nothing, and the second account never learns the row exists → AC-7 _(proven, `row-level-security.test.ts`)_
 - [ ] Delete an account → its profile, categories, and transactions all go, no orphans, and the restrict foreign key does not block it → AC-8 _(proven by hand)_
-- [ ] Rename a column in a migration without updating `lib/schema.ts` → the drift test fails rather than a screen showing `NaN` → **AC-10, not yet proven, needs the test accounts**
+- [ ] Rename a column in a migration without updating `lib/schema.ts` → the drift test fails rather than a screen showing `NaN` → AC-10 _(proven, and the test was mutation checked: adding a column the database lacks makes it fail)_
 
 ## Value sourcing, one per row of the spec's table
 
@@ -64,9 +64,9 @@ design time gate cannot see.
 - AC-4 new account gets a profile and ten categories · covered, proven by hand
 - AC-5 category with history cannot be deleted, hiding works · covered, proven by hand
 - AC-6 write time constraints · covered, proven by hand and by 20 unit tests
-- AC-7 row level security across two accounts · **not proven**, blocked on the test accounts
+- AC-7 row level security across two accounts · covered by 9 integration tests
 - AC-8 account delete cascades · covered, proven by hand
 - AC-9 Zod schemas and inferred types · covered by unit tests and the typecheck
-- AC-10 drift test against the live schema · **not proven**, test written but unrun
+- AC-10 drift test against the live schema · covered, and mutation checked
 - AC-11 `occurred_on` has no default · covered, proven by hand
 - AC-12 forward fit documented · covered by `docs/migrations.md`
