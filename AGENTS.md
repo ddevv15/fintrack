@@ -7,7 +7,7 @@ A personal money tracker for one person: log a spend, put it in a category, see 
 - **Language / Runtime**: TypeScript (strict), Node 22
 - **Framework**: Next.js 16 App Router, React 19, server first
 - **Backend**: InsForge (Postgres, Auth, Storage) through `@insforge/sdk`. No ORM; schema is plain SQL in `migrations/`
-- **Key dependencies**: Tailwind v4, Zod v4, date-fns
+- **Key dependencies**: Tailwind v4, Zod v4, date-fns, lucide-react (icons), clsx plus tailwind-merge (class joining)
 - **Package manager**: npm · **Hosting**: Vercel
 
 Full decision record and its reasoning: [spec 0001](docs/specs/0001-stack-and-architecture/index.md).
@@ -43,13 +43,14 @@ Stored in `docs/specs/`. Format: `docs/specs/NNNN-title/index.md`. The feature s
 - Strict TypeScript, no `any`. Named exports only, except Next.js pages, layouts, and route handlers, which must stay default exports.
 - Every table holding personal data has row level security on, keyed to the signed in user id. A table with no policy is a data leak, not a to do.
 - Environment variables are declared and validated in `lib/env.ts` with Zod. Add new ones there; never read `process.env` directly.
-- Layout is by layer: `app/`, `components/`, `lib/`, `actions/`, `migrations/`, `tests/`. Naming: `camelCase` functions and variables, `PascalCase` components and types, `snake_case` database columns.
+- Layout is by layer: `app/`, `components/`, `lib/`, `actions/`, `migrations/`, `tests/`. Inside `components/`: `components/ui/` holds the shared primitives, `components/<feature>/` holds anything specific to one feature. Naming: `camelCase` functions and variables, `PascalCase` components and types, `snake_case` database columns.
 - Every exported function carries a short comment saying what it does and why. UI meets WCAG AA: reachable by keyboard, correct to a screen reader.
+- Design system: build all UI to `docs/design.md` (the visual language and the component contract); token values live in `app/globals.css`, never in a component. `docs/accessibility-pass.md` records what has and has not been checked by hand.
 - Tailwind is v4, not v3.4. InsForge's docs say to use 3.4 and not upgrade; spec 0001 chose v4 and v4 is installed. The spec wins.
 
 ## Tooling
 
-All installed: ESLint plus Prettier (`eslint-config-prettier` last in the flat config, so the two never fight) · a husky pre commit hook running lint and format on staged files, then a project wide typecheck · Vitest for logic in `tests/unit/`, Playwright for flows in `tests/e2e/` · a GitHub Actions check on every push and pull request.
+All installed: ESLint plus Prettier (`eslint-config-prettier` last in the flat config, so the two never fight) · a husky pre commit hook running lint and format on staged files, then a project wide typecheck · Vitest for logic in `tests/unit/`, Playwright for flows in `tests/e2e/` · an `@axe-core/playwright` accessibility check at WCAG 2.2 AA against the component gallery, which fails the run on a violation · a GitHub Actions check on every push and pull request.
 
 Two things to know before you touch a config here. `npm run typecheck` runs `next typegen` first, because `LayoutProps` and friends are generated into `.next/types/` and a fresh clone has no `.next/`. And Prettier skips `docs/`, because reformatting those hand aligned tables buries the one line a skill actually changed.
 
@@ -71,14 +72,17 @@ Two things to know before you touch a config here. `npm run typecheck` runs `nex
 - [playwright-best-practices](.agents/skills/playwright-best-practices/): `currents-dev/playwright-best-practices-skill`, tests that do not flake
 - [vitest](.agents/skills/vitest/): `antfu/skills`, unit testing for money maths and month boundaries
 - [arcjet](.agents/skills/arcjet/): `arcjet/skills`, rate limiting and bot protection, wired up at feature 5
+- [accessibility](.agents/skills/accessibility/): `addyosmani/web-quality-skills`, WCAG patterns and the checks that catch a barrier early. Applies to every UI file.
 
-Declined: Drizzle, Prisma, Better Auth, Clerk, Biome, pnpm, bun
+Declined: Drizzle, Prisma, Better Auth, Clerk, Biome, pnpm, bun · `community-access/accessibility-agents@playwright-testing` · `nweii/agent-stuff@suggest-lucide-icons` · `hairyf/skills@tailwindcss` (it does not distinguish v3 from v4, and this project is on v4)
 
 MCP servers: insforge (configured in `.mcp.json`, restart the session to load it), playwright (available), vercel (available), posthog (installed, not yet authorised)
 
 ## Context files
 
 <!-- Nested AGENTS.md files are listed here as they are created -->
+
+- [components/ui/AGENTS.md](components/ui/AGENTS.md): the shared UI primitives, their server first rule, and the token and class name constraints that are easy to break.
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._
 

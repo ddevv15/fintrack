@@ -23,7 +23,18 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
 
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // Runs first and gates the rest. A server without UI_GALLERY serves a 404
+    // for every gallery route, and without this the suite reports that as
+    // seventeen missing elements rather than as one wrong server.
+    { name: "preflight", testMatch: /preflight\.setup\.ts/ },
+    {
+      name: "chromium",
+      testMatch: /.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["preflight"],
+    },
+  ],
 
   webServer: {
     // CI tests the production build, since that is what actually ships. Locally
@@ -32,5 +43,21 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    // Applies only to a server Playwright starts itself. A reused dev server
+    // keeps its own environment, which is what the preflight project checks.
+    //
+    // UI_GALLERY: the gallery route is a 404 without it, and the accessibility
+    // check has nowhere else to point. CI sets it in the workflow; locally it
+    // defaults on so the same command just works.
+    //
+    // The currency and zone are pinned so a run is deterministic. The tests no
+    // longer assert currency specific text, but the gallery still renders real
+    // money and dates, and a fixed pair keeps a failure about the component
+    // rather than about whoever's .env.local it happened to read.
+    env: {
+      UI_GALLERY: process.env.UI_GALLERY ?? "1",
+      APP_CURRENCY: "USD",
+      APP_TIMEZONE: "America/New_York",
+    },
   },
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { currentMonthRange, monthRange, today } from "@/lib/time";
+import {
+  currentMonthRange,
+  formatPlainDate,
+  monthRange,
+  today,
+} from "@/lib/time";
 
 /**
  * Locks rule 6 of spec 0001: the calendar day comes from APP_TIMEZONE, not from
@@ -79,5 +84,24 @@ describe("currentMonthRange", () => {
       start: "2026-08-01",
       endExclusive: "2026-09-01",
     });
+  });
+});
+
+describe("formatPlainDate", () => {
+  it("shows the day it was given, never the day before", () => {
+    // The bug this guards: parsing to midnight UTC then formatting in a
+    // negative offset zone lands on the previous day.
+    expect(formatPlainDate("2026-08-19")).toBe("Aug 19");
+    expect(formatPlainDate("2026-01-01")).toBe("Jan 1");
+    expect(formatPlainDate("2026-12-31")).toBe("Dec 31");
+  });
+
+  it("spells the month out in the full style", () => {
+    expect(formatPlainDate("2026-08-19", "full")).toBe("August 19, 2026");
+  });
+
+  it("refuses anything that is not a plain date", () => {
+    expect(() => formatPlainDate("19/08/2026")).toThrow(/plain date/);
+    expect(() => formatPlainDate("2026-08-19T10:00:00Z")).toThrow(/plain date/);
   });
 });

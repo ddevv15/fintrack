@@ -43,3 +43,23 @@ export function formatCents(
   }
   return formatterFor(currency, locale).format(cents / 100);
 }
+
+/**
+ * The currency's glyph on its own, for use as a form field adornment.
+ *
+ * APP_CURRENCY is a three letter code, and showing "USD" beside an input where
+ * a person expects "$" reads as a bug. Intl already knows the glyph for a
+ * currency in a locale, so it is pulled out of a formatted zero rather than
+ * kept in a lookup table here that would drift.
+ *
+ * Falls back to the code itself when the locale has no distinct glyph, which is
+ * correct rather than a placeholder: some currencies genuinely display as their
+ * code.
+ */
+export function currencySymbol(
+  currency: string = env().APP_CURRENCY,
+  locale = "en-US",
+): string {
+  const parts = formatterFor(currency, locale).formatToParts(0);
+  return parts.find((part) => part.type === "currency")?.value ?? currency;
+}

@@ -1,10 +1,13 @@
 name: CI
 
 on:
+  # Pull requests are the gate, so they run CI for every branch. Pushes only
+  # build main. Before this split, a push to a branch with an open pull request
+  # triggered both events and ran the whole suite twice on the same commit,
+  # including the eight minute browser job.
   push:
-    branches: ["**"]
-  pull_request:
     branches: [main]
+  pull_request:
 
 # A second push to the same branch cancels the first, so CI minutes go to the
 # commit you actually care about.
@@ -28,6 +31,7 @@ jobs:
   check:
     name: Lint, format, types, unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -72,6 +76,9 @@ jobs:
   e2e:
     name: End to end tests
     runs-on: ubuntu-latest
+    # Without this a hung step runs to GitHub's six hour default. The browser
+    # install has hung before; this turns that into a fast, obvious failure.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
@@ -82,12 +89,25 @@ jobs:
 
       - run: npm ci
 
+      - name: Cache the Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # On a cache hit only the system libraries are installed, which is the
+      # fast part. The browser download is what takes the minutes.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
       # The Playwright config builds and starts the app itself in CI, so this
       # also proves the production build compiles.
       - name: Run Playwright
+        # The accessibility check points axe at the design gallery, and that
+        # route 404s without this flag. An axe violation fails the run.
+        env:
+          UI_GALLERY: "1"
         run: npm run test:e2e
 
       - uses: actions/upload-artifact@v5
