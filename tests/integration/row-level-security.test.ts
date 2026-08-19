@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { cleanUp, signInBoth, type TestAccount } from "./accounts";
+import {
+  cleanUp,
+  createRunCategory,
+  RUN_DATE,
+  signInBoth,
+  type TestAccount,
+} from "./accounts";
 
 /**
  * The proof that one account cannot reach another's money.
@@ -14,8 +20,11 @@ let a: TestAccount;
 let b: TestAccount;
 let aCategoryId: string;
 let aTransactionId: string;
+let aOwnCategoryId: string;
 
-const today = "2026-08-19";
+// Every row this run writes carries RUN_DATE, so a concurrent run never sees
+// or deletes it. See RUN_DATE in ./accounts.
+const today = RUN_DATE;
 
 beforeAll(async () => {
   [a, b] = await signInBoth();
@@ -27,6 +36,10 @@ beforeAll(async () => {
     .select("id, name, kind")
     .eq("name", "Groceries");
   aCategoryId = (categories as { id: string }[])[0].id;
+
+  // A category only this run owns, for the tests that change one. Toggling a
+  // starting category would be shared state across concurrent runs.
+  aOwnCategoryId = await createRunCategory(a, "history");
 
   const { data: inserted, error } = await a.client.database
     .from("transactions")
@@ -206,16 +219,36 @@ describe("the database refuses bad money and bad references", () => {
 });
 
 describe("a category with history", () => {
+  let ownTransactionId: string;
+
+  beforeAll(async () => {
+    const { data } = await a.client.database
+      .from("transactions")
+      .insert([
+        {
+          category_id: aOwnCategoryId,
+          direction: "spend",
+          amount_cents: 1500,
+          occurred_on: today,
+        },
+      ])
+      .select();
+    ownTransactionId = (data as { id: string }[])[0].id;
+  });
+
   it("cannot be deleted", async () => {
-    await a.client.database.from("categories").delete().eq("id", aCategoryId);
+    await a.client.database
+      .from("categories")
+      .delete()
+      .eq("id", aOwnCategoryId);
 
     const { data } = await a.client.database
       .from("categories")
       .select("id")
-      .eq("id", aCategoryId);
+      .eq("id", aOwnCategoryId);
     expect(
       data ?? [],
-      "Groceries still has a transaction, so it must survive",
+      "it still has a transaction, so it must survive",
     ).toHaveLength(1);
   });
 
@@ -223,24 +256,19 @@ describe("a category with history", () => {
     await a.client.database
       .from("categories")
       .update({ is_hidden: true })
-      .eq("id", aCategoryId);
+      .eq("id", aOwnCategoryId);
 
     const { data: hidden } = await a.client.database
       .from("categories")
       .select("is_hidden")
-      .eq("id", aCategoryId);
+      .eq("id", aOwnCategoryId);
     expect((hidden as { is_hidden: boolean }[])[0].is_hidden).toBe(true);
 
     const { data: still } = await a.client.database
       .from("transactions")
       .select("id")
-      .eq("id", aTransactionId);
+      .eq("id", ownTransactionId);
     expect(still ?? [], "hiding must never touch history").toHaveLength(1);
-
-    await a.client.database
-      .from("categories")
-      .update({ is_hidden: false })
-      .eq("id", aCategoryId);
   });
 });
 

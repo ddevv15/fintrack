@@ -42,11 +42,27 @@ export const categoryColorSchema = z.enum([
 ]);
 export type CategoryColor = z.infer<typeof categoryColorSchema>;
 
-/** A calendar day as Postgres returns a DATE column: YYYY-MM-DD, no zone. */
+/**
+ * A calendar day as Postgres returns a DATE column: YYYY-MM-DD, no zone.
+ *
+ * The shape check alone is not enough, and neither is `Date.parse`. JavaScript
+ * quietly rolls an overflow day forward: `Date.parse("2026-02-30")` returns the
+ * 2nd of March rather than failing, so a day that does not exist would sail
+ * through and only be caught later by Postgres, with a worse message. Building
+ * the date back up and comparing every part is what actually rejects it.
+ */
 const plainDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "must be a YYYY-MM-DD calendar day")
-  .refine((value) => !Number.isNaN(Date.parse(value)), "must be a real date");
+  .refine((value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    const rebuilt = new Date(Date.UTC(year, month - 1, day));
+    return (
+      rebuilt.getUTCFullYear() === year &&
+      rebuilt.getUTCMonth() === month - 1 &&
+      rebuilt.getUTCDate() === day
+    );
+  }, "must be a day that exists on the calendar");
 
 /** A timestamptz as it arrives over the wire. */
 const timestampSchema = z.iso.datetime({ offset: true });

@@ -74,7 +74,13 @@ backend: it signs in as two accounts and proves neither can read or change the
 other's money, which is the one thing reading the migration cannot tell you.
 
 It needs three values in `.env.local`, listed in `.env.example`. The tests sign
-in, do their work, and clean up their own rows between runs. They never delete
+in, do their work, and clean up their own rows between runs.
+
+Two runs can safely overlap, which matters because you may run the suite locally
+while CI runs it on a push. Both accounts are fixed and shared, so every row a
+run writes carries a date unique to that run, and cleanup only ever removes rows
+carrying that date. A run that crashes leaves rows behind, and the next run
+ignores them rather than counting them into a total. They never delete
 the accounts, so the setup below stays done.
 
 ### Recreating the two test accounts

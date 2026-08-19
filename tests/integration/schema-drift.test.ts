@@ -7,7 +7,7 @@ import {
   transactionSchema,
 } from "@/lib/schema";
 
-import { cleanUp, signIn, type TestAccount } from "./accounts";
+import { cleanUp, RUN_DATE, signIn, type TestAccount } from "./accounts";
 
 /**
  * Does lib/schema.ts still describe the real tables?
@@ -38,7 +38,7 @@ beforeAll(async () => {
       category_id: (categories as { id: string }[])[0].id,
       direction: "spend",
       amount_cents: 1234,
-      occurred_on: "2026-08-19",
+      occurred_on: RUN_DATE,
       merchant: "Drift Check",
       note: "written so this table has a row to read",
     },
@@ -92,7 +92,7 @@ describe("the live tables still match lib/schema.ts", () => {
           category_id: (categories as { id: string }[])[0].id,
           direction: "spend",
           amount_cents: 700,
-          occurred_on: "2026-08-19",
+          occurred_on: RUN_DATE,
         },
       ])
       .select();

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { transactionSchema, parseRows } from "@/lib/schema";
 
-import { cleanUp, signIn, type TestAccount } from "./accounts";
+import { cleanUp, RUN_DATE, signIn, type TestAccount } from "./accounts";
 
 /**
  * Money adds up exactly, proved rather than declared.
@@ -40,7 +40,7 @@ beforeAll(async () => {
       category_id: categoryId,
       direction: "spend" as const,
       amount_cents: cents,
-      occurred_on: "2026-08-19",
+      occurred_on: RUN_DATE,
     })),
   );
   expect(error).toBeFalsy();
@@ -55,7 +55,7 @@ describe("amounts survive the round trip and the sum", () => {
     const { data } = await account.client.database
       .from("transactions")
       .select()
-      .eq("occurred_on", "2026-08-19");
+      .eq("occurred_on", RUN_DATE);
 
     const rows = parseRows(transactionSchema, "transactions", data);
     expect(rows.map((row) => row.amount_cents).sort((x, y) => x - y)).toEqual(
@@ -66,7 +66,8 @@ describe("amounts survive the round trip and the sum", () => {
   it("totals to the exact cent", async () => {
     const { data } = await account.client.database
       .from("transactions")
-      .select("amount_cents");
+      .select("amount_cents")
+      .eq("occurred_on", RUN_DATE);
 
     const rows = data as { amount_cents: number | string }[];
     const total = rows.reduce((sum, row) => sum + Number(row.amount_cents), 0);
@@ -76,7 +77,8 @@ describe("amounts survive the round trip and the sum", () => {
   it("keeps every amount a whole, safe integer", async () => {
     const { data } = await account.client.database
       .from("transactions")
-      .select("amount_cents");
+      .select("amount_cents")
+      .eq("occurred_on", RUN_DATE);
 
     for (const row of data as { amount_cents: number | string }[]) {
       expect(Number.isSafeInteger(Number(row.amount_cents))).toBe(true);

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { createClient } from "@insforge/sdk";
 
 /**
@@ -10,6 +12,30 @@ import { createClient } from "@insforge/sdk";
  * them would mean doing that by hand again, so the suites clean up their rows
  * and leave the accounts alone.
  */
+/**
+ * A date and a tag unique to this run.
+ *
+ * The two accounts are fixed and reused, so two runs can be in flight at once:
+ * you running the suite locally while CI runs it on a push. Cleaning up by
+ * account alone would then have one run deleting rows the other just wrote,
+ * failing tests that were perfectly correct. Every row a run creates carries
+ * this date, and every cleanup is scoped to it, so runs never touch each other.
+ * It also means rows left behind by a crashed run are ignored rather than
+ * counted into a total.
+ *
+ * The date sits far in the future so it can never be mistaken for real
+ * spending, spread across roughly 270 years so two runs choosing the same day
+ * is not a practical concern.
+ */
+export const RUN_DATE = ((): string => {
+  const start = Date.UTC(2200, 0, 1);
+  const day = Math.floor(Math.random() * 100_000);
+  return new Date(start + day * 86_400_000).toISOString().slice(0, 10);
+})();
+
+/** Prefix for any category a run creates, so cleanup finds exactly those. */
+export const RUN_TAG = `zz-run-${randomUUID().slice(0, 8)}`;
+
 export type TestAccount = {
   label: string;
   userId: string;
@@ -74,33 +100,54 @@ export async function signInBoth(): Promise<[TestAccount, TestAccount]> {
 }
 
 /**
- * Remove every transaction this account owns, and every category it added
- * beyond the ten it started with.
+ * Remove only what this run created: rows dated RUN_DATE, and categories named
+ * with this run's tag. Another run's rows, and the ten starting categories, are
+ * left alone.
  *
- * Transactions go first: a category with history cannot be deleted, which is
- * the whole point of the restrict rule these suites are here to prove.
+ * Transactions go first. A category with history cannot be deleted, which is
+ * the whole point of the restrict rule these suites prove, so the other order
+ * would fail.
  */
 export async function cleanUp(account: TestAccount): Promise<void> {
   await account.client.database
     .from("transactions")
     .delete()
-    .eq("user_id", account.userId);
+    .eq("user_id", account.userId)
+    .eq("occurred_on", RUN_DATE);
 
   const { data } = await account.client.database
     .from("categories")
     .select("id, name")
-    .eq("user_id", account.userId);
+    .eq("user_id", account.userId)
+    .like("name", `${RUN_TAG}%`);
 
-  const extras = (data ?? []).filter(
-    (row: { name: string }) => !STARTING_CATEGORIES.includes(row.name),
-  );
-
-  for (const extra of extras as { id: string }[]) {
-    await account.client.database
-      .from("categories")
-      .delete()
-      .eq("id", extra.id);
+  for (const own of (data ?? []) as { id: string }[]) {
+    await account.client.database.from("categories").delete().eq("id", own.id);
   }
+}
+
+/**
+ * Create a category this run owns, for any test that needs to change one.
+ *
+ * Hiding or renaming a starting category such as Groceries would be shared
+ * state: two runs toggling the same row would read each other's changes.
+ */
+export async function createRunCategory(
+  account: TestAccount,
+  suffix: string,
+  kind: "spend" | "income" = "spend",
+): Promise<string> {
+  const { data, error } = await account.client.database
+    .from("categories")
+    .insert([{ name: `${RUN_TAG}-${suffix}`, kind }])
+    .select();
+
+  if (error || !data) {
+    throw new Error(
+      `Could not create a run owned category: ${JSON.stringify(error)}`,
+    );
+  }
+  return (data as { id: string }[])[0].id;
 }
 
 /** The ten a new account is given by the trigger in the seed migration. */

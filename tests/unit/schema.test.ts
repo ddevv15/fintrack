@@ -125,6 +125,57 @@ describe("transactions", () => {
     expect("merchant" in parsed && parsed.merchant === null).toBe(false);
   });
 
+  it("rejects a day that does not exist on the calendar", () => {
+    // Date.parse rolls these forward instead of failing: "2026-02-30" becomes
+    // the 2nd of March. Without a component check they reach Postgres, and the
+    // field level error this schema exists to give never fires.
+    for (const day of [
+      "2026-02-30",
+      "2026-04-31",
+      "2026-02-29",
+      "2026-06-31",
+    ]) {
+      expect(() =>
+        transactionSchema.parse({ ...transaction, occurred_on: day }),
+      ).toThrow();
+    }
+  });
+
+  it("rejects an impossible month or day number", () => {
+    for (const day of [
+      "2026-13-01",
+      "2026-00-10",
+      "2026-08-00",
+      "2026-08-32",
+    ]) {
+      expect(() =>
+        transactionSchema.parse({ ...transaction, occurred_on: day }),
+      ).toThrow();
+    }
+  });
+
+  it("accepts a real leap day", () => {
+    // 2024 is a leap year, so this one must survive the stricter check.
+    expect(
+      transactionSchema.parse({ ...transaction, occurred_on: "2024-02-29" })
+        .occurred_on,
+    ).toBe("2024-02-29");
+  });
+
+  it("accepts the ordinary boundaries of a month", () => {
+    for (const day of [
+      "2026-01-01",
+      "2026-12-31",
+      "2026-02-28",
+      "2026-04-30",
+    ]) {
+      expect(
+        transactionSchema.parse({ ...transaction, occurred_on: day })
+          .occurred_on,
+      ).toBe(day);
+    }
+  });
+
   it("rejects a date that is not a plain calendar day", () => {
     expect(() =>
       transactionSchema.parse({
