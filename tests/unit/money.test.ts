@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCents } from "@/lib/money";
+import { currencySymbol, formatCents } from "@/lib/money";
 
 /**
  * Locks rule 1 of spec 0001: amounts are whole cents, and this module is the
@@ -51,5 +51,30 @@ describe("formatCents", () => {
 
   it("refuses NaN rather than rendering it as an amount", () => {
     expect(() => formatCents(Number.NaN, "USD")).toThrow(/whole cents/);
+  });
+});
+
+describe("currencySymbol", () => {
+  it("returns the glyph rather than the three letter code", () => {
+    expect(currencySymbol("USD")).toBe("$");
+    expect(currencySymbol("EUR")).toBe("€");
+    expect(currencySymbol("GBP")).toBe("£");
+  });
+
+  it("follows the locale, since the same currency is written differently", () => {
+    expect(currencySymbol("USD", "en-US")).toBe("$");
+    expect(currencySymbol("USD", "en-CA")).toBe("US$");
+  });
+
+  it("never yields a digit or an empty string, whatever the currency", () => {
+    // This is the real contract. The exact text for a currency with no common
+    // glyph is ICU's call and changes between Node releases, so asserting it
+    // would break on an upgrade without anything being wrong.
+    for (const code of ["USD", "EUR", "JPY", "XPF", "KWD", "INR"]) {
+      const symbol = currencySymbol(code, "en-US");
+
+      expect(symbol).not.toBe("");
+      expect(symbol).not.toMatch(/\d/);
+    }
   });
 });

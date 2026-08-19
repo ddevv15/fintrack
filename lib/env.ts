@@ -3,7 +3,8 @@ import { z } from "zod";
 /**
  * Environment configuration for FinTrack, validated once with Zod.
  *
- * Spec 0001 lists exactly these four values. Anything a later feature needs
+ * Spec 0001 listed four values. Spec 0003 added the fifth, UI_GALLERY, the way
+ * that spec said later features should add them. Anything a later feature needs
  * (ARCJET_KEY, PostHog keys) gets added when that feature is built, not before.
  */
 const envSchema = z.object({
@@ -19,6 +20,16 @@ const envSchema = z.object({
       isRealTimeZone,
       "must be an IANA time zone name, such as America/New_York",
     ),
+  // Spec 0003 AC-17: the component gallery renders only when this is set, and
+  // this is the one place in the codebase that reads it. Unset means false,
+  // which is what production runs. A value that is not one of these four is a
+  // typo, and a typo that silently disables a route is worse than a loud stop.
+  UI_GALLERY: z
+    .enum(["1", "0", "true", "false"], {
+      message: "must be 1, 0, true, or false, or be left unset",
+    })
+    .optional()
+    .transform((value) => value === "1" || value === "true"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -34,6 +45,7 @@ function readRawEnv() {
     NEXT_PUBLIC_INSFORGE_ANON_KEY: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY,
     APP_CURRENCY: process.env.APP_CURRENCY,
     APP_TIMEZONE: process.env.APP_TIMEZONE,
+    UI_GALLERY: process.env.UI_GALLERY,
   };
 }
 
