@@ -111,14 +111,57 @@ export function formatPlainDate(
 }
 
 /**
- * Every IANA zone name this runtime knows, for a picker.
+ * The zones a picker may offer, which is the set the database will accept.
  *
  * Read from the runtime rather than kept as a list here, because the set of
  * zone names belongs to the platform's timezone database and a copy in this
  * repository would go stale the first time a country changes its mind about
- * daylight saving. The database validates against `pg_timezone_names` for the
- * same reason, and the two agree because both track the IANA data.
+ * daylight saving.
+ *
+ * One correction is applied on the way out, and it is not cosmetic. The runtime
+ * and the database both track IANA data, but they disagree about which name is
+ * primary once a zone has been renamed: ICU still offers `Asia/Calcutta`, while
+ * this Postgres build does not recognise that name at all and refuses to store
+ * it. Offering a name the database will refuse is worse than it first looks,
+ * because `/setup` is the screen every new account has to finish before it can
+ * use anything, and for India, Ukraine, Vietnam, Myanmar, Argentina, Nepal, and
+ * Greenland the runtime offers only the old name. Somebody in Delhi could pick
+ * their own zone and never get off the setup screen.
+ */
+const RENAMED_ZONES: Readonly<Record<string, string>> = {
+  "Africa/Asmera": "Africa/Asmara",
+  "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+  "America/Catamarca": "America/Argentina/Catamarca",
+  "America/Cordoba": "America/Argentina/Cordoba",
+  "America/Godthab": "America/Nuuk",
+  "America/Indianapolis": "America/Indiana/Indianapolis",
+  "America/Jujuy": "America/Argentina/Jujuy",
+  "America/Louisville": "America/Kentucky/Louisville",
+  "America/Mendoza": "America/Argentina/Mendoza",
+  "Asia/Calcutta": "Asia/Kolkata",
+  "Asia/Katmandu": "Asia/Kathmandu",
+  "Asia/Rangoon": "Asia/Yangon",
+  "Asia/Saigon": "Asia/Ho_Chi_Minh",
+  "Atlantic/Faeroe": "Atlantic/Faroe",
+  "Europe/Kiev": "Europe/Kyiv",
+  "Pacific/Enderbury": "Pacific/Kanton",
+  "Pacific/Ponape": "Pacific/Pohnpei",
+  "Pacific/Truk": "Pacific/Chuuk",
+};
+
+/**
+ * Every zone name a picker may offer, corrected and sorted.
+ *
+ * Each pair in `RENAMED_ZONES` is a rename and nothing else: both names resolve
+ * to the same offset, checked at the same instant, so substituting one for the
+ * other changes what the database stores and never what time it is. The drift
+ * test in `tests/integration/schema-drift.test.ts` fails if the runtime and the
+ * database ever disagree again, which is the part that stops this rotting
+ * quietly the next time either side updates its timezone data.
  */
 export function timeZoneNames(): readonly string[] {
-  return Intl.supportedValuesOf("timeZone");
+  const corrected = Intl.supportedValuesOf("timeZone").map(
+    (zone) => RENAMED_ZONES[zone] ?? zone,
+  );
+  return [...new Set(corrected)].sort();
 }

@@ -4,6 +4,7 @@ import {
   currentMonthRange,
   formatPlainDate,
   monthRange,
+  timeZoneNames,
   today,
 } from "@/lib/time";
 
@@ -110,5 +111,75 @@ describe("formatPlainDate", () => {
   it("refuses anything that is not a plain date", () => {
     expect(() => formatPlainDate("19/08/2026")).toThrow(/plain date/);
     expect(() => formatPlainDate("2026-08-19T10:00:00Z")).toThrow(/plain date/);
+  });
+});
+
+describe("timeZoneNames", () => {
+  // Every name here was offered by the picker and refused by the database,
+  // which trapped a new account on /setup: it could not finish, and an
+  // incomplete profile is sent straight back to /setup. This Postgres build
+  // does not recognise the old names at all.
+  const RENAMED = {
+    "Africa/Asmera": "Africa/Asmara",
+    "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+    "America/Catamarca": "America/Argentina/Catamarca",
+    "America/Cordoba": "America/Argentina/Cordoba",
+    "America/Godthab": "America/Nuuk",
+    "America/Indianapolis": "America/Indiana/Indianapolis",
+    "America/Jujuy": "America/Argentina/Jujuy",
+    "America/Louisville": "America/Kentucky/Louisville",
+    "America/Mendoza": "America/Argentina/Mendoza",
+    "Asia/Calcutta": "Asia/Kolkata",
+    "Asia/Katmandu": "Asia/Kathmandu",
+    "Asia/Rangoon": "Asia/Yangon",
+    "Asia/Saigon": "Asia/Ho_Chi_Minh",
+    "Atlantic/Faeroe": "Atlantic/Faroe",
+    "Europe/Kiev": "Europe/Kyiv",
+    "Pacific/Enderbury": "Pacific/Kanton",
+    "Pacific/Ponape": "Pacific/Pohnpei",
+    "Pacific/Truk": "Pacific/Chuuk",
+  } as const;
+
+  it("never offers a name this database refuses to store", () => {
+    const offered = new Set(timeZoneNames());
+    const stillOffered = Object.keys(RENAMED).filter((old) => offered.has(old));
+    expect(
+      stillOffered,
+      "the picker is offering unstorable zone names",
+    ).toEqual([]);
+  });
+
+  it("offers the name the database does accept in its place", () => {
+    const offered = new Set(timeZoneNames());
+    const missing = Object.values(RENAMED).filter(
+      (canonical) => !offered.has(canonical),
+    );
+    expect(missing, "a country lost its only selectable zone").toEqual([]);
+  });
+
+  it("substitutes a rename, never a different time", () => {
+    // If a pair ever stopped agreeing on the offset, the substitution would be
+    // silently moving somebody's month boundary rather than renaming a zone.
+    const at = new Date("2026-08-21T12:00:00Z");
+    const offsetOf = (zone: string) =>
+      new Intl.DateTimeFormat("en", {
+        timeZone: zone,
+        timeZoneName: "longOffset",
+      })
+        .format(at)
+        .split(" ")
+        .pop();
+
+    for (const [old, canonical] of Object.entries(RENAMED)) {
+      expect(offsetOf(canonical), `${old} and ${canonical} disagree`).toBe(
+        offsetOf(old),
+      );
+    }
+  });
+
+  it("has no duplicates and stays sorted, so the picker reads sanely", () => {
+    const offered = timeZoneNames();
+    expect(new Set(offered).size).toBe(offered.length);
+    expect([...offered]).toEqual([...offered].sort());
   });
 });
