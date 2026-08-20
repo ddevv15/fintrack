@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
 import { cn } from "@/lib/ui";
 
@@ -18,8 +18,11 @@ import { controlClasses } from "./Input";
  * text inputs beside it, which means the arrow has to be put back: without it
  * this reads as a text box and nobody knows it opens.
  */
+// WithRef rather than WithoutRef: React 19 passes ref as an ordinary prop, and
+// TimezoneSelect needs one to move the selection to the browser's own zone
+// after mount without fighting hydration.
 type SelectProps = Omit<
-  ComponentPropsWithoutRef<"select">,
+  ComponentPropsWithRef<"select">,
   "id" | "name" | "aria-describedby" | "aria-invalid"
 > &
   FieldControlProps & {

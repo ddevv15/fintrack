@@ -109,3 +109,16 @@ export function formatPlainDate(
     timeZone: "UTC",
   }).format(parseISO(`${date}T00:00:00Z`));
 }
+
+/**
+ * Every IANA zone name this runtime knows, for a picker.
+ *
+ * Read from the runtime rather than kept as a list here, because the set of
+ * zone names belongs to the platform's timezone database and a copy in this
+ * repository would go stale the first time a country changes its mind about
+ * daylight saving. The database validates against `pg_timezone_names` for the
+ * same reason, and the two agree because both track the IANA data.
+ */
+export function timeZoneNames(): readonly string[] {
+  return Intl.supportedValuesOf("timeZone");
+}

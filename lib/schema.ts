@@ -191,8 +191,9 @@ export type Transaction = z.infer<typeof transactionSchema>;
  * What the app sends when logging an entry.
  *
  * occurred_on is required because the column has no default. The calendar day
- * comes from today() in lib/time.ts, which reads APP_TIMEZONE, so a person in
- * one place is never given a server's idea of what day it is.
+ * comes from today() in lib/time.ts, given the signed in person's own zone from
+ * getSettings(), so a person in one place is never handed a server's idea of
+ * what day it is.
  */
 export const transactionInsertSchema = z.object({
   category_id: z.uuid(),
