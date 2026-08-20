@@ -89,7 +89,8 @@ One account that is yours, so your data follows you from laptop to phone. No sha
   - [x] The currency list, the two new profile columns, both guarding triggers, and the settings loader that money and time now read from (AC-10, AC-11, AC-12, AC-13, AC-15)
   - [x] Sign up, verify by code, sign in, sign out, and close every route, landing on a placeholder home (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6)
   - [x] Password recovery, the one time setup screen, and Google sign in (AC-3, AC-7, AC-14)
-  - [x] Account settings, deletion through the edge function, attempt limiting, and the proving tests (AC-8, AC-11, AC-12, AC-16, AC-17, AC-18, AC-19)
+  - [x] Account settings, deletion through a database function, attempt limiting on the three public forms, and the proving tests (AC-11, AC-12, AC-16, AC-17, AC-18, AC-19)
+  - [x] Finish the attempt limiting: the two mail senders and the three code submitters, with the two signed in actions keyed on the account as well as the source (AC-8)
 - [ ] Verify it: `/check verify sign in and your account`
 - [ ] Test it: `/test sign in and your account`
 

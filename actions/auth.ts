@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { createAuthActions } from "@insforge/sdk/ssr";
 import { z } from "zod";
 
-import { refuseIfTooManyAttempts } from "@/lib/attempt-limit";
+import {
+  refuseIfTooManyAccountAttempts,
+  refuseIfTooManyAttempts,
+} from "@/lib/attempt-limit";
 import { requireUser } from "@/lib/auth";
 import { env } from "@/lib/env";
 import type { FormState } from "@/lib/forms";
@@ -151,6 +154,11 @@ export async function verifyEmailCode(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  // A six digit code is a million possibilities, and this is the only thing
+  // counting wrong guesses at one (AC-8).
+  const refused = await refuseIfTooManyAttempts("code");
+  if (refused) return refused;
+
   const parsed = verifySchema.safeParse({
     email: formData.get("email"),
     otp: String(formData.get("otp") ?? "").replace(/\s/g, ""),
@@ -175,6 +183,10 @@ export async function resendVerification(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  // Every call here puts another email in somebody's inbox (AC-8).
+  const refused = await refuseIfTooManyAttempts("email");
+  if (refused) return refused;
+
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) {
     return failed("Enter the address you signed up with.");
@@ -324,6 +336,11 @@ export async function setNewPassword(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  // The whole trust model of recovery rests on this code being hard to guess
+  // inside its window, so guesses are counted as strictly as requests (AC-8).
+  const refused = await refuseIfTooManyAttempts("code");
+  if (refused) return refused;
+
   const parsed = setNewPasswordSchema.safeParse({
     email: formData.get("email"),
     code: String(formData.get("code") ?? "").replace(/\s/g, ""),
@@ -380,6 +397,11 @@ const changePasswordSchema = z.object({
 export async function requestPasswordChange(): Promise<FormState> {
   const user = await requireUser();
 
+  // Keyed on the account as well as the source, so rotating source addresses
+  // cannot aim an unbounded run of emails at one mailbox (AC-8).
+  const refused = await refuseIfTooManyAccountAttempts(user.id, "email");
+  if (refused) return refused;
+
   const insforge = await createInsforgeServer();
   const { error } = await insforge.auth.sendResetPasswordEmail({
     email: user.email,
@@ -406,6 +428,11 @@ export async function changePassword(
   formData: FormData,
 ): Promise<FormState> {
   const user = await requireUser();
+
+  // Same code, same million possibilities, and this one changes the password on
+  // a signed in account, so it is counted per account too (AC-8).
+  const refused = await refuseIfTooManyAccountAttempts(user.id, "code");
+  if (refused) return refused;
 
   const parsed = changePasswordSchema.safeParse({
     code: String(formData.get("code") ?? "").replace(/\s/g, ""),
