@@ -12,6 +12,12 @@ import { cn } from "@/lib/ui";
  * APP_CURRENCY, which is server only. A Client Component that has to show money
  * takes the already formatted string as a prop, so the amount and the currency
  * code never reach the browser (AC-10).
+ *
+ * Pass `currency` on every signed in screen, from `getSettings()`. The default
+ * is APP_CURRENCY, which since spec 0004 is only the value the sign up form
+ * suggests and is nobody's actual currency. Leaving it off renders somebody's
+ * yen as dollars, silently and confidently, which is the exact failure the
+ * minor units work exists to prevent.
  */
 type AmountProps = {
   amount: MinorUnits;
