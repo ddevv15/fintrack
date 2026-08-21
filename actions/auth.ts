@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createAuthActions } from "@insforge/sdk/ssr";
 import { z } from "zod";
 
@@ -309,9 +310,32 @@ export async function requestPasswordReset(
     return failed("That does not look like an email address.");
 
   const insforge = await createInsforgeServer();
-  // The result is deliberately not inspected. Reporting a failure here would
-  // report whether the address exists, which is the one thing this must not do.
-  await insforge.auth.sendResetPasswordEmail({ email: parsed.data });
+
+  // The send runs after the response, and both halves of that matter.
+  //
+  // Timing: awaiting it here answered the question the screen refuses to. A
+  // real send takes about three seconds; an address with no account comes back
+  // in about eighty milliseconds. Identical wording is no use against a gap
+  // that size, so anyone with a stopwatch could sort addresses into "has an
+  // account" and "does not". Running it after the response means both answers
+  // leave at the same moment.
+  //
+  // Visibility: the result still must not reach the person at the screen, for
+  // the original reason. It does now reach the log, so a refused send stops
+  // being invisible to you too. A refusal here is about how often this address
+  // and this source have asked, never about whether the account exists, so
+  // writing it down gives nothing away.
+  after(async () => {
+    const { error } = await insforge.auth.sendResetPasswordEmail({
+      email: parsed.data,
+    });
+    if (error) {
+      console.error(
+        "[auth] a password reset email was refused, so nobody received a code. The screen still said one was sent, which is deliberate: it must not say whether the address has an account.",
+        error,
+      );
+    }
+  });
 
   redirect(`/reset-password?email=${encodeURIComponent(parsed.data)}`);
 }
