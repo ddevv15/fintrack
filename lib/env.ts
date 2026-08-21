@@ -10,9 +10,34 @@ import { z } from "zod";
 const envSchema = z.object({
   NEXT_PUBLIC_INSFORGE_URL: z.url("must be the full InsForge project URL"),
   NEXT_PUBLIC_INSFORGE_ANON_KEY: z.string().min(1, "must not be empty"),
+  // Where this app answers, used to build the one absolute URL the app needs:
+  // the `redirectTo` Google sends you back to. It cannot be derived from the
+  // request, because the value has to match what the InsForge dashboard allows,
+  // and a redirect target taken from a header is a redirect target an attacker
+  // can set. Spec 0004 added it.
+  // The protocol constraint is not decoration. `z.url()` alone accepts
+  // "localhost:3000", because the URL parser reads that as the protocol
+  // "localhost:" with the path "3000". It would validate here and then build a
+  // nonsense redirect that Google refuses, which is a confusing failure a long
+  // way from its cause.
+  APP_URL: z.url({
+    protocol: /^https?$/,
+    error:
+      "must be the full origin this app runs on, protocol and all, such as http://localhost:3000",
+  }),
+  // Spec 0004 demoted these two, and the demotion is easy to undo by accident,
+  // so it is written here rather than only in the spec.
+  //
+  // APP_CURRENCY is NO LONGER the app's currency. It is only the currency the
+  // sign up form preselects. A signed in person's currency is profiles.currency
+  // and reaches code through getSettings() in lib/settings.ts.
   APP_CURRENCY: z
     .string()
     .regex(/^[A-Z]{3}$/, "must be a three letter ISO 4217 code, such as USD"),
+  // APP_TIMEZONE is NO LONGER the app's timezone. It is only the fallback
+  // suggestion on the sign up form when the browser offers none. No signed in
+  // code path may read it: today() and currentMonthRange() take the zone as a
+  // required argument precisely so this cannot creep back in.
   APP_TIMEZONE: z
     .string()
     .min(1)
@@ -20,6 +45,16 @@ const envSchema = z.object({
       isRealTimeZone,
       "must be an IANA time zone name, such as America/New_York",
     ),
+  // Spec 0004 AC-8: the Arcjet site key, for attempt limiting on sign in, sign
+  // up, and password reset. Optional on purpose, and this is the one place that
+  // decision is visible: the whole feature is built to fail open, so no key
+  // means no limiting and a warning in the log, exactly as an Arcjet outage
+  // does. Requiring it would mean a missing key takes the whole app down, which
+  // is the opposite of what fail open is for. See lib/attempt-limit.ts.
+  ARCJET_KEY: z
+    .string()
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
   // Spec 0003 AC-17: the component gallery renders only when this is set, and
   // this is the one place in the codebase that reads it. Unset means false,
   // which is what production runs. A value that is not one of these four is a
@@ -54,8 +89,10 @@ function readRawEnv() {
   return {
     NEXT_PUBLIC_INSFORGE_URL: process.env.NEXT_PUBLIC_INSFORGE_URL,
     NEXT_PUBLIC_INSFORGE_ANON_KEY: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY,
+    APP_URL: process.env.APP_URL,
     APP_CURRENCY: process.env.APP_CURRENCY,
     APP_TIMEZONE: process.env.APP_TIMEZONE,
+    ARCJET_KEY: process.env.ARCJET_KEY,
     UI_GALLERY: process.env.UI_GALLERY,
   };
 }

@@ -392,15 +392,15 @@ export default function DesignGallery() {
 
         <Section
           title="Money, dates, categories"
-          summary="Amount calls formatCents() and does no arithmetic of its own. Income carries a leading plus as well as a colour, so the meaning survives without the colour."
+          summary="Amount calls formatAmount() and does no arithmetic of its own. Income carries a leading plus as well as a colour, so the meaning survives without the colour."
         >
           <div className="flex flex-col gap-5">
             <Example label="Amount">
               <div className="flex flex-wrap items-center gap-6">
-                <Amount cents={4250} direction="spend" />
-                <Amount cents={4250} direction="income" />
-                <Amount cents={129999} direction="spend" />
-                <Amount cents={0} direction="spend" />
+                <Amount amount={4250} direction="spend" />
+                <Amount amount={4250} direction="income" />
+                <Amount amount={129999} direction="spend" />
+                <Amount amount={0} direction="spend" />
               </div>
             </Example>
 
@@ -432,19 +432,19 @@ export default function DesignGallery() {
                 leading={<CategoryChip name="Groceries" color="green" />}
                 title="Weekly shop"
                 subtitle={<DateDisplay date="2026-08-18" />}
-                trailing={<Amount cents={8734} direction="spend" />}
+                trailing={<Amount amount={8734} direction="spend" />}
               />
               <ListRow
                 leading={<CategoryChip name="Salary" color="emerald" />}
                 title="August salary"
                 subtitle={<DateDisplay date="2026-08-01" />}
-                trailing={<Amount cents={412500} direction="income" />}
+                trailing={<Amount amount={412500} direction="income" />}
               />
               <ListRow
                 leading={<CategoryChip name="Transport" color="blue" />}
                 title="A merchant name far longer than the row it has to fit inside, which truncates while the amount stays whole"
                 subtitle={<DateDisplay date="2026-08-15" />}
-                trailing={<Amount cents={1250} direction="spend" />}
+                trailing={<Amount amount={1250} direction="spend" />}
                 actions={
                   <>
                     <Button size="sm" variant="ghost">

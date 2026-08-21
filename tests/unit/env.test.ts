@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const REQUIRED = {
   NEXT_PUBLIC_INSFORGE_URL: "https://example.insforge.app",
   NEXT_PUBLIC_INSFORGE_ANON_KEY: "anon-key",
+  APP_URL: "http://localhost:3000",
   APP_CURRENCY: "USD",
   APP_TIMEZONE: "America/New_York",
 };
@@ -90,6 +91,44 @@ describe("the required variables", () => {
   it("refuses a currency that is not a three letter code", async () => {
     await expect(loadEnv({ APP_CURRENCY: "dollars" })).rejects.toThrow(
       /APP_CURRENCY/,
+    );
+  });
+});
+
+/**
+ * ARCJET_KEY is optional, and that is load bearing rather than lazy.
+ *
+ * Spec 0004 says attempt limiting fails open: an Arcjet outage must never lock
+ * the owner out of their own money history. A required key would mean a missing
+ * one takes down every route in the app, which is the opposite of that. These
+ * two cases are what stop somebody "tidying" the `.optional()` away.
+ */
+describe("ARCJET_KEY", () => {
+  it("is allowed to be absent, so the app runs with no attempt limiting", async () => {
+    const env = await loadEnv({ ARCJET_KEY: undefined });
+    expect(env.ARCJET_KEY).toBeUndefined();
+  });
+
+  it("treats an empty value as absent, the same way UI_GALLERY does", async () => {
+    // A bare `ARCJET_KEY=` line, or an empty box in a hosting dashboard.
+    const env = await loadEnv({ ARCJET_KEY: "" });
+    expect(env.ARCJET_KEY).toBeUndefined();
+  });
+
+  it("passes a real key through", async () => {
+    const env = await loadEnv({ ARCJET_KEY: "ajkey_example" });
+    expect(env.ARCJET_KEY).toBe("ajkey_example");
+  });
+});
+
+/**
+ * APP_URL exists so the OAuth redirect target is a configured value rather than
+ * something read off the request, which would be attacker controlled.
+ */
+describe("APP_URL", () => {
+  it("must be a real origin", async () => {
+    await expect(loadEnv({ APP_URL: "localhost:3000" })).rejects.toThrow(
+      /APP_URL/,
     );
   });
 });

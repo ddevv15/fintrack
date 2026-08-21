@@ -24,20 +24,20 @@ describe("money", () => {
     scratch,
   }) => {
     const category = await scratch.category();
-    for (const amount_cents of [0, -1]) {
+    for (const amount_minor of [0, -1]) {
       const { error } = await accountA.client.database
         .from("transactions")
         .insert([
           {
             category_id: category.id,
             direction: "spend",
-            amount_cents,
+            amount_minor,
             occurred_on: FIXTURE_DATE,
           },
         ]);
       expect(
         error,
-        `an amount of ${amount_cents} must be refused`,
+        `an amount of ${amount_minor} must be refused`,
       ).toBeTruthy();
     }
   });
@@ -55,7 +55,7 @@ describe("a transaction and its category must agree", () => {
         {
           category_id: income.id,
           direction: "spend",
-          amount_cents: 500,
+          amount_minor: 500,
           occurred_on: FIXTURE_DATE,
         },
       ]);
@@ -123,7 +123,7 @@ describe("text length", () => {
           {
             category_id: category.id,
             direction: "spend",
-            amount_cents: 500,
+            amount_minor: 500,
             occurred_on: FIXTURE_DATE,
             ...field,
           },
@@ -142,7 +142,7 @@ describe("a category with history", () => {
     scratch,
   }) => {
     const category = await scratch.category();
-    const logged = await scratch.log(category, { amount_cents: 1500 });
+    const logged = await scratch.log(category, { amount_minor: 1500 });
 
     await accountA.client.database
       .from("categories")

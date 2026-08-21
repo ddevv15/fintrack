@@ -31,7 +31,7 @@ const transaction = {
   user_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   category_id: category.id,
   direction: "spend",
-  amount_cents: 1299,
+  amount_minor: 1299,
   occurred_on: "2026-08-19",
   merchant: "Test Mart",
   note: "weekly shop",
@@ -65,22 +65,22 @@ describe("categories", () => {
 
 describe("transactions", () => {
   it("accepts a well formed row", () => {
-    expect(transactionSchema.parse(transaction).amount_cents).toBe(1299);
+    expect(transactionSchema.parse(transaction).amount_minor).toBe(1299);
   });
 
   it("rejects zero and negative amounts", () => {
     // Direction carries the sign, so a non positive amount is always a bug.
     expect(() =>
-      transactionSchema.parse({ ...transaction, amount_cents: 0 }),
+      transactionSchema.parse({ ...transaction, amount_minor: 0 }),
     ).toThrow();
     expect(() =>
-      transactionSchema.parse({ ...transaction, amount_cents: -500 }),
+      transactionSchema.parse({ ...transaction, amount_minor: -500 }),
     ).toThrow();
   });
 
-  it("rejects a fractional amount, because cents are whole", () => {
+  it("rejects a fractional amount, because minor units are whole", () => {
     expect(() =>
-      transactionSchema.parse({ ...transaction, amount_cents: 12.99 }),
+      transactionSchema.parse({ ...transaction, amount_minor: 12.99 }),
     ).toThrow();
   });
 
@@ -89,7 +89,7 @@ describe("transactions", () => {
     expect(() =>
       transactionSchema.parse({
         ...transaction,
-        amount_cents: Number.MAX_SAFE_INTEGER + 2,
+        amount_minor: Number.MAX_SAFE_INTEGER + 2,
       }),
     ).toThrow();
   });
@@ -97,9 +97,9 @@ describe("transactions", () => {
   it("normalises a bigint sent as a string", () => {
     const parsed = transactionSchema.parse({
       ...transaction,
-      amount_cents: "1299",
+      amount_minor: "1299",
     });
-    expect(parsed.amount_cents).toBe(1299);
+    expect(parsed.amount_minor).toBe(1299);
   });
 
   it("rejects a note longer than the column allows", () => {
@@ -199,7 +199,7 @@ describe("transactions", () => {
     const parsed = transactionInsertSchema.parse({
       category_id: category.id,
       direction: "spend",
-      amount_cents: 500,
+      amount_minor: 500,
       occurred_on: "2026-08-19",
       user_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     });
@@ -212,9 +212,9 @@ describe("parseRow", () => {
     expect(() =>
       parseRow(transactionSchema, "transactions", {
         ...transaction,
-        amount_cents: -1,
+        amount_minor: -1,
       }),
-    ).toThrow(/transactions[\s\S]*amount_cents/);
+    ).toThrow(/transactions[\s\S]*amount_minor/);
   });
 
   it("says the schema and the migration have drifted", () => {
