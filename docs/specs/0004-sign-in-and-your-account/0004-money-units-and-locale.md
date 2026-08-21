@@ -4,7 +4,7 @@ Child of [0004 sign in and your account](index.md). Covers how an amount is stor
 
 ## Summary
 
-An amount is a whole number of **minor units**: the smallest unit the currency actually has. That is one cent for a dollar, one whole yen for a yen, and one thousandth of a dinar for a Kuwaiti dinar. The stored integer never changes meaning; only the number of decimal places used to display it does, and that comes from the currency. Your currency and your timezone become columns on your profile, chosen by you and never guessed, and one small function is the only way server code reads them.
+An amount is a whole number of **minor units**: the smallest unit the currency actually has. That is one cent for a dollar, one whole yen for a yen, and one thousandth of a dinar for a Kuwaiti dinar. The stored integer never changes meaning; only the number of decimal places used to display it does, and that comes from the currency. Your currency and your timezone become columns on your profile, chosen by you on a setup screen every new account passes through, never guessed, and one small function is the only way server code reads them.
 
 ## Inline rationale
 
@@ -81,16 +81,17 @@ Server actions and one read helper. There is no HTTP endpoint here; these run in
 
 | Action | Value produced / displayed | Source |
 |---|---|---|
-| sign up form | the currency options | `lib/currency.ts`, the typed mirror. Not a query, so the form renders with no database round trip |
-| sign up form | the preselected currency | `APP_CURRENCY` from `lib/env.ts`, demoted to a suggestion only |
-| sign up form | the preselected timezone | `Intl.DateTimeFormat().resolvedOptions().timeZone` in the browser, a suggestion the person may change. `APP_TIMEZONE` is the fallback suggestion when the browser gives nothing |
-| account creation | `profiles.currency`, `profiles.timezone` | the signUp profile payload, written by `handle_new_user()` reading `NEW.profile ->> 'currency'` and `NEW.profile ->> 'timezone'` |
-| Google account creation | `profiles.currency`, `profiles.timezone` | neither is present in the payload, so both are null and the setup screen supplies them |
+| setup screen | the currency options | `lib/currency.ts`, the typed mirror. Not a query, so the screen renders with no database round trip |
+| setup screen | the preselected currency | `APP_CURRENCY` from `lib/env.ts`, demoted to a suggestion only |
+| setup screen | the preselected timezone | `Intl.DateTimeFormat().resolvedOptions().timeZone` in the browser, a suggestion the person may change. `APP_TIMEZONE` is the fallback suggestion when the browser gives nothing |
+| account creation | `profiles.display_name` | the signUp profile payload, written by `handle_new_user()` reading `NEW.profile ->> 'name'`. A Google account gets its Google name here |
+| account creation | `profiles.currency`, `profiles.timezone` | neither can travel in the signUp payload, which carries a name and is stripped of anything else, so both are null at creation for every account, password or Google alike |
+| `completeSetup` | `profiles.currency`, `profiles.timezone` | the setup screen's two fields, validated in Zod, then by the foreign key and the timezone trigger. This one update is the only writer of these columns at creation time, and no code path may read either as a default before it runs |
 | any amount on screen | the decimal count | `lib/currency.ts` keyed by the currency from `getSettings()`, after narrowing on `isComplete`. Never `Intl`, never a hardcoded 100. A caller that has not narrowed cannot reach the currency, which is the point of the union |
 | any amount on screen | the currency glyph | `currencySymbol()` in `lib/money.ts`, from `Intl` formatting parts. Safe here because a wrong glyph is cosmetic and a wrong exponent is not |
 | any date on screen | the calendar day | `today(now, getSettings().timezone)`. No signed in path passes `APP_TIMEZONE` |
 | this month's queries | the month start and end | `currentMonthRange(now, getSettings().timezone)`, half open, as spec 0002 already requires |
-| settings screen | whether currency is changeable | a count of the account's transactions, taken at render. The database trigger is the real guard; this only decides what the screen says |
+| settings screen | whether currency is changeable | a head only count of the account's own `transactions` rows, taken at render in `app/(app)/settings/page.tsx` and passed down as a prop. It is deliberately not part of `getSettings()`: that function is the single read path for currency, timezone, and display name, and this is a fact about history rather than about the profile. The database trigger is the real guard; this count only decides what the screen says |
 | the drift test | the expected decimals per code | both sides at once, `lib/currency.ts` and a select over `public.currencies`, asserted equal |
 
 **Key invariants**:
@@ -110,19 +111,19 @@ Server actions and one read helper. There is no HTTP endpoint here; these run in
 
 `currencies` is reference data with no owner. Row level security is enabled and a single select policy is granted `TO authenticated`. No insert, update, or delete policy exists, so the table is changeable only by a migration, which is the intent.
 
-The one new write path worth naming: `handle_new_user()` now reads two values that originate in a browser form. They are validated in Zod in the server action before signUp is called, and the foreign key and the timezone trigger reject anything that gets past it. A rejected value fails account creation loudly rather than writing a bad profile, which is the correct direction for this project.
+The one new write path worth naming is `completeSetup`, which takes two values from a browser form and updates your own profile row. It is guarded three deep: Zod in the server action, then the foreign key to `currencies`, then the timezone trigger, and the existing update policy means the row it can reach is your own and no other. A rejected value fails the setup screen loudly rather than writing a bad profile, which is the correct direction for this project. `handle_new_user()` reads no browser supplied locale value at all, because none reaches it.
 
 **Configuration required**:
 
 No new environment variables. Two existing ones change meaning and the change must be written into `lib/env.ts` as a comment, because their old meaning is documented in spec 0001 and someone will otherwise restore it:
 
-- `APP_CURRENCY`: no longer the app's currency. Now only the currency preselected on the sign up form
-- `APP_TIMEZONE`: no longer the app's timezone. Now only the fallback suggestion on the sign up form when the browser offers none. No signed in code path may read it
+- `APP_CURRENCY`: no longer the app's currency. Now only the currency preselected on the setup screen
+- `APP_TIMEZONE`: no longer the app's timezone. Now only the fallback suggestion on the setup screen when the browser offers none. No signed in code path may read it
 
 **Critical test scenarios**:
 
 - Happy path: the stored integer 500 renders as ¥500 on a JPY profile, $5.00 on a USD profile, and the correct three decimal amount on a KWD profile, with no branch outside `lib/money.ts`, verifies **AC-10**.
-- Happy path: sign up choosing JPY and `Asia/Tokyo`, and confirm the profile row carries both from a single insert with no follow up write, verifies **AC-1**.
+- Happy path: sign up, verify, then choose JPY and `Asia/Tokyo` on the setup screen, and confirm the profile row carries the display name from the trigger's insert and the two locale values from that one update, verifies **AC-1**, **AC-14**.
 - Failure case: with one transaction on the account, attempt to change the currency directly against the database; the trigger refuses it, verifies **AC-12**.
 - Failure case: add a code to `lib/currency.ts` without adding it to the migration; the drift test fails, verifies **AC-11**.
 - Failure case: attempt to write a currency code outside the supported list and a timezone that is not an IANA name; the foreign key refuses the first and the trigger refuses the second, verifies **AC-11**.

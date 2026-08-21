@@ -82,4 +82,42 @@ Option 4 was the closest call. Stamping currency per transaction is correct in a
 
 On passkeys, the engineer selected them before the platform's capabilities were checked, and they turned out not to exist on InsForge. The choice presented afterwards was to drop them, defer them, build WebAuthn directly, or substitute email codes; the engineer chose to drop them. That is the right call for this app: building WebAuthn correctly means a credential store, challenge generation, attestation verification, and session minting that agrees with an auth system you do not own, and it would be larger and riskier than everything else in feature 5 combined.
 
-Two decisions were made against the grain of the engineer's first instinct and are worth naming. Choosing currency and timezone on the sign up form does not survive contact with Google sign in, which has no form, so a one time setup screen exists as well; that screen, not the form, is the guarantee that no value is ever guessed. And the profile columns had to become nullable to allow it, which reads like a weakening of the "required, no fallback" answer but is not: null means not chosen yet and routes to the setup screen, and no code path is permitted to read it as a default.
+Two decisions were made against the grain of the engineer's first instinct and are worth naming. Choosing currency and timezone on the sign up form does not survive contact with Google sign in, which has no form, so a one time setup screen exists as well; that screen, not the form, is the guarantee that no value is ever guessed. The build then found that the form does not survive contact with the platform either, and the setup screen became the only path rather than the fallback path, which is recorded below. And the profile columns had to become nullable to allow it, which reads like a weakening of the "required, no fallback" answer but is not: null means not chosen yet and routes to the setup screen, and no code path is permitted to read it as a default.
+
+## Ratified at build time
+
+Four things were built differently from what this spec first described. Each was agreed with the engineer during `/develop`, and each is now deliberated and written into the spec proper, so the spec describes what exists rather than what was hoped for. The criteria were amended in place rather than kept alongside a list of departures, because a spec that says two different things about one behaviour is worse than one that has visibly changed its mind.
+
+Three of the four were forced by the platform and one was a free choice made better than the spec's. That distinction matters when reading them: a forced deviation is a fact to record, and a free one is a decision to defend.
+
+### 1. Currency and timezone are answered on the setup screen, not the sign up form (forced)
+
+The spec had the sign up form collect both and the new account trigger write all three columns in one insert. InsForge's signUp accepts an email address, a password, a name, a redirect, and an auto confirm flag, and its schema strips anything else, so `NEW.profile ->> 'currency'` and `NEW.profile ->> 'timezone'` were always null and always would be. There was no version of the original design that worked.
+
+What was weighed instead of simply removing them: writing the two values from the client immediately after signUp, before verification. That was rejected because it puts a profile write in the one window where the account is least trustworthy, and because it makes the app the second writer of a row the database is supposed to own alone. Leaving the two reads in the trigger as harmless was also weighed and rejected for the reason this whole feature exists: SQL that asserts something untrue about the world is exactly what `amount_cents` was.
+
+What it costs: one more screen between verifying your address and using the app, and a real window where an account exists with no currency. That window is closed in the database, not in the app. The `BEFORE INSERT` trigger on `transactions` refuses any amount while the profile is incomplete, so nothing can be recorded in a currency nobody chose. What it buys is one path to a complete profile instead of two, since a Google account was always going to need the setup screen anyway.
+
+### 2. Password recovery is a six digit code, not an emailed link (forced)
+
+The backend is configured `resetPasswordMethod: code`, so recovery emails a six digit code, which the app exchanges for a token before setting the password. The spec described a link carrying a token, with `insforge_status` on the landing URL to say whether it was used or expired. That URL does not exist here; the exchange call failing is what distinguishes a used or expired code, and it is a better signal because it is the platform's own answer rather than a parameter read back from a redirect.
+
+The tail changed with it: after setting the password you land on `/sign-in` rather than in a session. The reset runs against a server client with no cookie writer, so there is no session to carry forward. Carrying it was weighed, and the engineer chose the sign in step: it is one interaction, and it proves the new password actually works rather than assuming it. This is the same six digit shape verification already uses, so the app now has one mental model for codes rather than two.
+
+### 3. Changing a password proves mailbox control, not knowledge of the old one (forced, with a real cost)
+
+The platform exposes sign up, sign in, verify, and reset by code, and no change password call at all. So changing a password while signed in runs the recovery flow against your own address, and the settings screen has no current password field.
+
+This is the deviation with a genuine security consequence, and it was put to the engineer as its own decision rather than folded in with the rest. The alternative on the table was to add a current password field and check it server side with a silent sign in call against your own address before sending the code. That would restore the original guarantee. It was rejected because of what it actually buys: the code still has to be read from the mailbox, so a stolen live session alone cannot complete the change either way, and every other session ends when it succeeds. The field would defend only against somebody holding a live session and the mailbox at once, at the cost of a second failure mode on the settings screen and one more platform call that can be wrong. The engineer accepted the weaker guarantee knowingly.
+
+What the spec now does instead of pretending: AC-17 states which guarantee is on offer, the security model names it as deliberately weaker than the usual advice, and the screen says it in plain words to the person using it.
+
+One thing this deviation created that the spec had not accounted for: the password change is a mail sender reachable by any signed in session, and Arcjet was wired to sign in, sign up, and password reset only, because those were the three surfaces that existed when attempt limiting was specced. AC-8 now names the fourth, and build step 11 exists because the code does not yet meet it. Stating a criterion the build fails is the honest way round; trimming the criterion to match the code would have hidden it.
+
+### 4. Account deletion is a database function, not an edge function (chosen, and better)
+
+The spec called for an InsForge edge function holding an elevated credential, because the SDK exposes no self deletion. The build used a `SECURITY DEFINER` Postgres function instead, `public.delete_own_account()`, taking the account from `auth.uid()`.
+
+This is the one deviation that is a free choice, and it is the better answer on three counts. It takes no parameter, so a caller cannot name another account because there is nowhere to name one; the edge function would have had to authenticate a token and derive an id, which is code that can be got wrong. It stores no admin credential anywhere, so there is nothing to leak or rotate. And it is not a second deployable artifact with its own lifecycle, versioning, and deploy step, which for a one person project is a real ongoing cost.
+
+What it costs is honest: it is the only `SECURITY DEFINER` function in this feature, it ignores row level security by design, and it is the only code in the project that can delete from `auth.users`. Spec 0001 rule 7 permits exactly this shape provided the function filters by the caller's id by hand and carries a comment saying why it exists, and both hold. The edge function stays worth remembering as the runner up: it becomes the right answer the day deletion needs to do something outside the database as well, such as revoking a third party token or deleting an uploaded file, which is plausible at feature 19.
