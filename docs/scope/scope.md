@@ -106,15 +106,15 @@ A plain list of what you logged this month, so you can spot a mistake and fix it
 - [ ] Build it: `/develop this month's transactions`
 
 ### 8. Where your money went
-spec [0005](../specs/0005-where-your-money-went/index.md)
+spec [0005](../specs/0005-where-your-money-went/index.md) · code in `app/(app)/breakdown/`, `components/breakdown/`, `lib/breakdown.ts`
 The screen that answers your actual question: total spent this month, split by category, biggest first.
 **Done when:** the month total and the split by category are correct against the logged entries, the biggest category is obvious at a glance, and a month with no data reads as empty rather than broken. (basis: this is the core value screen and how you show the split is a real design call, so it earns a spec)
 - [x] Design it (spec): `/architect where your money went`
-- [ ] Build it: `/develop where your money went`
-  - [ ] The month maths and the query under it: `formatMonth()`, `percentShares()`, the proved embedding, `monthSpendRowSchema`, and `loadMonthBreakdown()` (AC-1, AC-2, AC-3, AC-4, AC-6, AC-7, AC-11)
-  - [ ] The screen itself: the ranked row with its bar, the route, the currency from settings, and the Breakdown tab switched live (AC-2, AC-5, AC-10, AC-12, AC-14)
-  - [ ] The states that make it trustworthy: the empty month, and the completeness guard that refuses to show a total it cannot prove (AC-8, AC-9)
-  - [ ] Prove it: unit tests for the rounding and the ordering, the axe check on the route, and route protection (AC-3, AC-4, AC-5, AC-12, AC-13)
+- [x] Build it: `/develop where your money went`
+  - [x] The month maths and the query under it: `formatMonth()`, `percentShares()`, the proved embedding, `monthSpendRowSchema`, and `loadMonthBreakdown()` (AC-1, AC-2, AC-3, AC-4, AC-6, AC-7, AC-11)
+  - [x] The screen itself: the ranked row with its bar, the route, the currency from settings, and the Breakdown tab switched live (AC-2, AC-5, AC-10, AC-12, AC-14)
+  - [x] The states that make it trustworthy: the empty month, and the completeness guard that refuses to show a total it cannot prove (AC-8, AC-9)
+  - [x] Prove it: unit tests for the rounding and the ordering, the axe check on the route, and route protection (AC-3, AC-4, AC-5, AC-12, AC-13)
 - [ ] Verify it: `/check verify where your money went`
 
 ## Release 2: make it yours, and keep it safe
