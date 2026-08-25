@@ -73,6 +73,85 @@ export function formatAmount(
 }
 
 /**
+ * Split a total into whole number percentage shares that add to exactly 100.
+ *
+ * The naive way, rounding each share on its own, produces a column that adds to
+ * 101 often enough to notice. Nothing on screen claims the column adds up, but
+ * a reader can add it up, and a total of 101 in an app whose whole promise is
+ * that its numbers are right is a visible wrongness (spec 0005, AC-4).
+ *
+ * So this is the largest remainder method: floor every share, then hand the
+ * leftover points to whoever was cut by the most. `amounts` must already be in
+ * the order the rows will be shown, because ties are broken by that order.
+ * Awarding a tie by position rather than arbitrarily is what stops a row
+ * showing a share its own ranking contradicts.
+ *
+ * The remainders are compared as exact integers (`amount * 100 % total`) rather
+ * than as floating point fractions. Two equal thirds must compare equal, and
+ * `33.333333333333336` against `33.33333333333333` does not, so a float compare
+ * would decide a tie by rounding noise instead of by the stated rule.
+ *
+ * This does no rounding of money and divides no amount, so it does not break
+ * the rule this module exists to hold: it turns integers into percentages,
+ * which are not money.
+ *
+ * A share may come back as 0 for a category that genuinely has spending, when
+ * its true share is under half a percent. That is real, and the caller renders
+ * it as `<1%` rather than `0%` (AC-2). Forcing it up to 1 would take the point
+ * from a larger category, which is the worse lie.
+ */
+export function percentShares(
+  amounts: readonly MinorUnits[],
+  total: MinorUnits,
+): readonly number[] {
+  if (amounts.length === 0) return [];
+
+  for (const amount of amounts) {
+    if (!Number.isSafeInteger(amount) || amount < 0) {
+      throw new Error(
+        `A share must come from whole, non negative minor units, received ${amount}`,
+      );
+    }
+  }
+
+  // A mismatch means the caller worked out one of the two from different rows
+  // than the other. Rule 3 of AGENTS.md: fail rather than render shares of a
+  // total that is not the total.
+  const summed = amounts.reduce((running, amount) => running + amount, 0);
+  if (!Number.isSafeInteger(total) || total !== summed) {
+    throw new Error(
+      `Shares must be taken against the sum of their own amounts. ` +
+        `Received a total of ${total} for amounts summing to ${summed}.`,
+    );
+  }
+  if (total <= 0) {
+    throw new Error(
+      "Cannot take percentage shares of a total of zero. A month with no spending has no shares; render the empty state instead.",
+    );
+  }
+
+  const floored = amounts.map((amount) => Math.floor((amount * 100) / total));
+  const remainders = amounts.map((amount) => (amount * 100) % total);
+
+  let leftover = 100 - floored.reduce((running, share) => running + share, 0);
+
+  // Biggest remainder first; an exact tie keeps the order it arrived in, which
+  // is the row order, so the extra point lands on the row that sorts first.
+  const byRemainder = remainders
+    .map((remainder, index) => ({ remainder, index }))
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+
+  const shares = [...floored];
+  for (const { index } of byRemainder) {
+    if (leftover <= 0) break;
+    shares[index] += 1;
+    leftover -= 1;
+  }
+
+  return shares;
+}
+
+/**
  * The currency's glyph on its own, for use as a form field adornment.
  *
  * A three letter code beside an input where a person expects "$" reads as a

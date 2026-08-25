@@ -15,20 +15,16 @@ import { AppNav, type NavItem } from "./AppNav";
  */
 const navItems: readonly NavItem[] = [
   { href: "/", label: "Log", icon: "log" },
-  // prefetch is off on these two only because features 7 and 8 have not built
-  // the routes yet. Drop the flag when they do.
+  // prefetch is off here only because feature 7 has not built /transactions
+  // yet. Drop the flag when it does; /breakdown already dropped its own when
+  // feature 8 landed the route.
   {
     href: "/transactions",
     label: "Month",
     icon: "transactions",
     prefetch: false,
   },
-  {
-    href: "/breakdown",
-    label: "Breakdown",
-    icon: "breakdown",
-    prefetch: false,
-  },
+  { href: "/breakdown", label: "Breakdown", icon: "breakdown" },
 ];
 
 export function AppShell({

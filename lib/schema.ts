@@ -209,6 +209,40 @@ export type TransactionInsert = z.infer<typeof transactionInsertSchema>;
 export const transactionUpdateSchema = transactionInsertSchema.partial();
 export type TransactionUpdate = z.infer<typeof transactionUpdateSchema>;
 
+/**
+ * One row of the month breakdown query, with its category embedded.
+ *
+ * `transactionSchema` cannot be reused here. It requires `id`, `user_id`,
+ * `occurred_on`, and both timestamps, and this query deliberately fetches none
+ * of them: the breakdown needs an amount and a category and nothing else, and
+ * asking for columns to satisfy a schema would be the schema driving the query
+ * instead of the other way round.
+ *
+ * The `categories` key is a single object, not an array, despite the plural
+ * name. That was proved against the real backend before this schema was
+ * written (spec 0005, build plan task 3), because the foreign key involved is
+ * the three column composite from spec 0002 rather than an ordinary single
+ * column one, and PostgREST decides between an object and an array from the
+ * cardinality it reads off that key. It resolves to an object because
+ * `categories_owner_id_kind_key` makes the referenced columns unique.
+ *
+ * It is required rather than nullable, and that is deliberate. `category_id`
+ * is NOT NULL behind a foreign key, and any transaction you can read belongs
+ * to a category you can read, since both tables scope to the same owner. So a
+ * missing category here is not an ordinary absence, it means an assumption
+ * broke, and throwing is the honest answer rather than rendering the row under
+ * a blank name.
+ */
+export const monthSpendRowSchema = z.object({
+  amount_minor: minorUnitsSchema,
+  categories: z.object({
+    id: z.uuid(),
+    name: z.string().min(1).max(60),
+    color: categoryColorSchema,
+  }),
+});
+export type MonthSpendRow = z.infer<typeof monthSpendRowSchema>;
+
 /** The calendar day type, re-exported so callers need one import for a row. */
 export type { PlainDate };
 

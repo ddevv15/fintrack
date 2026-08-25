@@ -111,6 +111,36 @@ export function formatPlainDate(
 }
 
 /**
+ * Render the month a plain date falls in, as "August 2026".
+ *
+ * Formatted in UTC for exactly the reason `formatPlainDate()` is: a PlainDate
+ * parses to midnight UTC, and formatting that instant in another zone can land
+ * on the previous day. On the first of a month that is not a cosmetic slip, it
+ * names the wrong month at the top of a screen full of that month's money.
+ *
+ * Lives here rather than as an `Intl` call in the breakdown page because spec
+ * 0003 made this module the only place a date becomes text (AC-12 there,
+ * AC-11 in spec 0005). `formatPlainDate()` cannot serve: neither of its styles
+ * omits the day, and a month heading reading "August 1, 2026" is a different
+ * claim from "August 2026".
+ *
+ * The locale is `en-US` for everyone, because the profile carries a currency
+ * and a timezone but no locale. Spec 0005 records that as an open follow up
+ * rather than guessing one from either of the two values that do exist.
+ */
+export function formatMonth(date: PlainDate, locale = "en-US"): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error(`Expected a YYYY-MM-DD plain date, received ${date}`);
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(parseISO(`${date}T00:00:00Z`));
+}
+
+/**
  * The zones a picker may offer, which is the set the database will accept.
  *
  * Read from the runtime rather than kept as a list here, because the set of
