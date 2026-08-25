@@ -1,7 +1,7 @@
 # 0005. Where your money went
 
 **Date**: 2026-08-25
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

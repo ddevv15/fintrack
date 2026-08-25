@@ -18,7 +18,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 5 | Sign in and your account | Release 1 | done |
 | 6 | Log a spend | Release 1 | planned |
 | 7 | This month's transactions | Release 1 | planned |
-| 8 | Where your money went | Release 1 | in-progress |
+| 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | planned |
 | 10 | Search and filter your history | Release 2 | planned |
 | 11 | Export and backup | Release 2 | planned |
