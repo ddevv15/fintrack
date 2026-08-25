@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   categorySchema,
   parseRows,
+  profileSchema,
   transactionSchema,
   type Category,
   type EntryDirection,
@@ -147,7 +148,59 @@ async function signIn(label: keyof typeof ACCOUNT_EMAIL_VAR) {
   if (whoError || !user?.user?.id) {
     throw new Error(`Signed in as ${label} but could not read the user id.`);
   }
+
+  await ensureLocale({ label, userId: user.user.id, client });
+
   return { label, userId: user.user.id, client } satisfies TestAccount;
+}
+
+/**
+ * The currency and timezone each test account uses.
+ *
+ * They differ on purpose. Two accounts on the same backend with different
+ * currencies and different zones is what proves those values are really per
+ * person rather than per deployment, and account B's yen is a zero decimal
+ * currency, so the exponent path is exercised by an ordinary fixture and not
+ * only by a unit test.
+ */
+const ACCOUNT_LOCALE = {
+  first: { currency: "USD", timezone: "America/New_York" },
+  second: { currency: "JPY", timezone: "Asia/Tokyo" },
+} as const;
+
+/**
+ * Give the account a currency and a timezone if it has none yet.
+ *
+ * Spec 0004 added a BEFORE INSERT trigger refusing any transaction while the
+ * account's profile is incomplete, so without this every fixture write fails
+ * with a message about a currency nobody chose. Sign up normally supplies both;
+ * these two accounts predate the columns.
+ *
+ * Idempotent, and it stays legal after the currency locks: the lock trigger
+ * only fires when the value actually changes, and this writes the same value
+ * every run.
+ */
+async function ensureLocale(account: TestAccount): Promise<void> {
+  const wanted = ACCOUNT_LOCALE[account.label as keyof typeof ACCOUNT_LOCALE];
+
+  const current = one(
+    profileSchema,
+    "profiles",
+    await account.client.database
+      .from("profiles")
+      .select()
+      .eq("user_id", account.userId),
+  );
+
+  if (current.currency && current.timezone) return;
+
+  assertOk(
+    `setting the ${account.label} account's currency and time zone`,
+    await account.client.database
+      .from("profiles")
+      .update(wanted)
+      .eq("user_id", account.userId),
+  );
 }
 
 /**
@@ -160,7 +213,7 @@ export type Scratch = {
   category(kind?: EntryDirection): Promise<Category>;
   log(
     category: Category,
-    fields: { amount_cents: number; merchant?: string; note?: string },
+    fields: { amount_minor: number; merchant?: string; note?: string },
   ): Promise<Transaction>;
 };
 

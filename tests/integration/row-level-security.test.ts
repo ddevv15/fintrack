@@ -26,7 +26,7 @@ const test = base.extend<{ aSpend: Transaction }>({
       const category = await scratch.category();
       await use(
         await scratch.log(category, {
-          amount_cents: 4599,
+          amount_minor: 4599,
           merchant: "Test Mart",
         }),
       );
@@ -103,7 +103,7 @@ describe("writing across accounts", () => {
   }) => {
     await accountB.client.database
       .from("transactions")
-      .update({ amount_cents: 1 })
+      .update({ amount_minor: 1 })
       .eq("id", aSpend.id);
 
     const after = one(
@@ -114,7 +114,7 @@ describe("writing across accounts", () => {
         .select()
         .eq("id", aSpend.id),
     );
-    expect(after.amount_cents).toBe(4599);
+    expect(after.amount_minor).toBe(4599);
   });
 
   test("the second account cannot delete the first's transaction", async ({
@@ -149,7 +149,7 @@ describe("writing across accounts", () => {
         {
           category_id: aSpend.category_id,
           direction: "spend",
-          amount_cents: 100,
+          amount_minor: 100,
           occurred_on: aSpend.occurred_on,
         },
       ]);
@@ -171,7 +171,7 @@ describe("writing across accounts", () => {
           user_id: accountA.userId,
           category_id: aSpend.category_id,
           direction: "spend",
-          amount_cents: 100,
+          amount_minor: 100,
           occurred_on: aSpend.occurred_on,
         },
       ]);

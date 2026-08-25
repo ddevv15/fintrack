@@ -81,26 +81,64 @@ function nullableToUndefined<T extends z.ZodType>(inner: T) {
 }
 
 /**
- * Whole cents, as a bigint column arrives.
+ * Whole minor units, as a bigint column arrives.
+ *
+ * A minor unit is the smallest unit the currency has, so how many of them make
+ * one of anything you would say out loud is a fact about the currency and lives
+ * in lib/currency.ts, never here.
  *
  * PostgREST may render a bigint as a JSON number or as a string depending on
  * the driver, so both are accepted and normalised to one number. The safe
  * integer check is the guarantee that matters: past 2^53 a JavaScript number
  * silently stops being exact, and this is a money app.
  */
-const centsSchema = z
+const minorUnitsSchema = z
   .union([z.number(), z.string().regex(/^-?\d+$/)])
   .transform((value) => (typeof value === "string" ? Number(value) : value))
-  .refine(Number.isSafeInteger, "money must be a whole number of cents")
-  .refine((cents) => cents > 0, "amount must be above zero");
+  .refine(Number.isSafeInteger, "money must be a whole number of minor units")
+  .refine((amount) => amount > 0, "amount must be above zero");
 
-/** One person's profile row. Created by the database, never by the app. */
+/**
+ * One person's profile row. Created by the database, never by the app.
+ *
+ * `currency` and `timezone` are nullable because undefined means not chosen
+ * yet, which is a real state a new Google account arrives in. Nothing reads
+ * either one as a default; `getSettings()` in lib/settings.ts is what turns
+ * this row into either a complete settings object or an explicit incomplete
+ * one, so no screen has to remember the difference.
+ */
 export const profileSchema = z.object({
   user_id: z.uuid(),
   display_name: nullableToUndefined(z.string().max(100)),
+  currency: nullableToUndefined(z.string().regex(/^[A-Z]{3}$/)),
+  timezone: nullableToUndefined(z.string().min(1)),
   created_at: timestampSchema,
 });
 export type Profile = z.infer<typeof profileSchema>;
+
+/**
+ * A row of the currencies reference table.
+ *
+ * The app reads this only to prove it agrees with lib/currency.ts. Screens read
+ * the TypeScript list instead, so a picker never costs a query.
+ */
+export const currencyRowSchema = z.object({
+  code: z.string().regex(/^[A-Z]{3}$/),
+  decimals: z.number().int().min(0).max(3),
+  name: z.string().min(1),
+});
+export type CurrencyRow = z.infer<typeof currencyRowSchema>;
+
+/** What the app may change on its own profile. */
+export const profileUpdateSchema = z.object({
+  display_name: z.string().max(100).optional(),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .optional(),
+  timezone: z.string().min(1).optional(),
+});
+export type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
 
 /** A category you own. */
 export const categorySchema = z.object({
@@ -140,7 +178,7 @@ export const transactionSchema = z.object({
   user_id: z.uuid(),
   category_id: z.uuid(),
   direction: entryDirectionSchema,
-  amount_cents: centsSchema,
+  amount_minor: minorUnitsSchema,
   occurred_on: plainDateSchema,
   merchant: nullableToUndefined(z.string().max(200)),
   note: nullableToUndefined(z.string().max(500)),
@@ -153,13 +191,14 @@ export type Transaction = z.infer<typeof transactionSchema>;
  * What the app sends when logging an entry.
  *
  * occurred_on is required because the column has no default. The calendar day
- * comes from today() in lib/time.ts, which reads APP_TIMEZONE, so a person in
- * one place is never given a server's idea of what day it is.
+ * comes from today() in lib/time.ts, given the signed in person's own zone from
+ * getSettings(), so a person in one place is never handed a server's idea of
+ * what day it is.
  */
 export const transactionInsertSchema = z.object({
   category_id: z.uuid(),
   direction: entryDirectionSchema,
-  amount_cents: centsSchema,
+  amount_minor: minorUnitsSchema,
   occurred_on: plainDateSchema,
   merchant: z.string().max(200).optional(),
   note: z.string().max(500).optional(),

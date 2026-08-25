@@ -20,6 +20,10 @@ env:
   # talks to a real backend; when one does, these move to repository secrets.
   NEXT_PUBLIC_INSFORGE_URL: https://ci-placeholder.insforge.app
   NEXT_PUBLIC_INSFORGE_ANON_KEY: ci-placeholder-anon-key
+  # The origin the app answers on. Required, not optional, because the Google
+  # callback URL is built from it. localhost:3000 here because that is where
+  # Playwright's webServer serves the build, and no CI job talks to Google.
+  APP_URL: http://localhost:3000
   APP_CURRENCY: USD
   APP_TIMEZONE: America/New_York
   # Whether this repository has the backend test secrets. Computed here because

@@ -8,7 +8,7 @@ import { controlClasses } from "./Input";
 /**
  * An amount field. It captures text and parses nothing.
  *
- * Turning "12.5" into cents is a product decision (round, truncate, or refuse)
+ * Turning "12.5" into minor units is a product decision (round, truncate, or refuse)
  * that belongs to feature 6, log a spend, so this returns the raw string and
  * lets the server action decide (AC-16).
  *
