@@ -1,5 +1,8 @@
+import Link from "next/link";
+
 import { BreakdownRow } from "@/components/breakdown/BreakdownRow";
 import { Amount } from "@/components/ui/Amount";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { loadMonthBreakdown } from "@/lib/breakdown";
 import { requireCompleteSettings } from "@/lib/settings";
 import { formatMonth } from "@/lib/time";
@@ -24,15 +27,42 @@ export default async function BreakdownPage() {
   // request, so this and the loader's own call cost one query between them.
   const settings = await requireCompleteSettings();
   const breakdown = await loadMonthBreakdown();
+  const month = formatMonth(breakdown.month);
+
+  const heading = (
+    <div>
+      <h1 className="text-fg text-2xl font-semibold">{month}</h1>
+      <p className="text-fg-muted mt-1 text-sm">Where your money went</p>
+    </div>
+  );
+
+  // A month with nothing in it renders no total at all, not a zero (AC-8). A
+  // zero is a result, and "you spent nothing" is a different claim from "you
+  // have logged nothing yet", which is the one that is actually true here.
+  if (breakdown.rows.length === 0) {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+        {heading}
+
+        <EmptyState
+          title={`Nothing logged in ${month}`}
+          body="Once you log a spend it shows up here, split by category with the biggest first."
+          action={
+            <Link
+              href="/"
+              className="focus-ring border-border bg-surface text-fg inline-flex min-h-11 items-center rounded-sm border px-4 text-sm font-medium"
+            >
+              Log a spend
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6">
-      <div>
-        <h1 className="text-fg text-2xl font-semibold">
-          {formatMonth(breakdown.month)}
-        </h1>
-        <p className="text-fg-muted mt-1 text-sm">Where your money went</p>
-      </div>
+      {heading}
 
       {/* A description list rather than two loose paragraphs, so the label and
           the figure are related to each other rather than merely next to each

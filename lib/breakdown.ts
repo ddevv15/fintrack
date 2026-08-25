@@ -55,6 +55,24 @@ export type MonthBreakdown = {
 const byName = new Intl.Collator("en-US");
 
 /**
+ * How many rows this screen will hold in memory at once.
+ *
+ * A bound on memory, and deliberately no longer the safety check. An earlier
+ * draft of spec 0005 guarded completeness by asking for one row more than a cap
+ * and throwing when that many arrived. A cross check showed that guard defeats
+ * itself: PostgREST carries its own server side row limit, and if that limit
+ * sits below this number the server truncates first, the extra row never
+ * arrives, and the check stays silent while the total is short. A guard that
+ * fails exactly when it is needed is worse than no guard, because it invites
+ * trust.
+ *
+ * Correctness therefore rests on the exact count comparison below, which holds
+ * whatever the server's own limit turns out to be. This number only stops one
+ * absurd month from being read into memory in full.
+ */
+const MAX_MONTH_ROWS = 5000;
+
+/**
  * Turn a month of rows into a total and a ranked split, with no side effects.
  *
  * The total and the row amounts come from the same single pass over the same
@@ -138,11 +156,14 @@ export async function loadMonthBreakdown(): Promise<MonthBreakdown> {
   // afterwards (AC-7).
   const result = await insforge.database
     .from("transactions")
-    .select("amount_minor,categories(id,name,color)")
+    .select("amount_minor,categories(id,name,color)", { count: "exact" })
     .eq("direction", "spend")
     .gte("occurred_on", start)
-    .lt("occurred_on", endExclusive);
+    .lt("occurred_on", endExclusive)
+    .limit(MAX_MONTH_ROWS);
 
+  // Rethrown, never swallowed. The route has an error boundary and this screen
+  // has no honest degraded form: there is no partial total worth showing.
   if (result.error) {
     throw new Error(
       `Could not read this month's spending: ${JSON.stringify(result.error)}`,
@@ -150,6 +171,24 @@ export async function loadMonthBreakdown(): Promise<MonthBreakdown> {
   }
 
   const rows = parseRows(monthSpendRowSchema, "transactions", result.data);
+
+  // The completeness check (AC-9). It compares the rows received against the
+  // count Postgres reports for this same filter, not against the length of the
+  // array it just measured, which would compare a number with itself. That is
+  // the whole point: a server side row limit can shorten `data` without any
+  // error, and only a number the database produced independently can catch it.
+  const reported = result.count;
+  if (typeof reported !== "number") {
+    throw new Error(
+      "This month's spending came back without a row count, so there is no way to prove nothing was dropped. Refusing to show a total that might be short.",
+    );
+  }
+  if (rows.length !== reported) {
+    throw new Error(
+      `This month's spending came back short: ${rows.length} rows for a reported count of ${reported}. ` +
+        `Refusing to show a total that is missing entries. If the count is above ${MAX_MONTH_ROWS}, that limit is what truncated it.`,
+    );
+  }
 
   return summariseMonth(start, rows);
 }
