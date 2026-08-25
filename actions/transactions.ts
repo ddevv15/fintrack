@@ -7,7 +7,7 @@ import type { FormState } from "@/lib/forms";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { formatAmount, parseAmount } from "@/lib/money";
 import { monthSpendRowSchema, parseRow } from "@/lib/schema";
-import { requireCompleteSettings } from "@/lib/settings";
+import { getSettings } from "@/lib/settings";
 import { today } from "@/lib/time";
 
 /**
@@ -77,6 +77,12 @@ function describeDatabaseRefusal(error: { code?: string; message?: string }): {
   // The BEFORE INSERT trigger that refuses any spend while the profile is
   // incomplete. Matched on its message because it raises a plain exception
   // rather than a constraint violation with a code of its own.
+  //
+  // The action now checks completeness itself before reaching this point, so
+  // this is no longer the ordinary path to that message. It stays as the
+  // backstop for the gap between that check and this insert: the profile could
+  // in principle be completed away in between. Rare enough to never see, cheap
+  // enough to keep, and the database is the real guard either way.
   if (/currency|timezone|incomplete|profile/i.test(message)) {
     return {
       message:
@@ -117,16 +123,31 @@ function describeDatabaseRefusal(error: { code?: string; message?: string }): {
  * only then does anything reach the database, where the composite foreign key
  * and the amount check have the final say.
  *
- * `requireCompleteSettings()` is not redundant with the redirect in
+ * The profile check is not redundant with the redirect in
  * `app/(app)/layout.tsx`, and that is worth knowing before anyone removes it: a
  * server action is its own entry point reached by a POST, so no layout runs for
  * it and no redirect in one can protect it (AC-14).
+ *
+ * It uses `getSettings()` and narrows, rather than `requireCompleteSettings()`
+ * which throws. The distinction is not style. A throw here escapes the action
+ * and lands on the route error boundary, which replaces the whole page, loses
+ * everything you typed, and shows a message written for whoever maintains this
+ * code rather than for you. A page render can afford that, because the layout
+ * has already guaranteed completeness before it runs and there is no form to
+ * preserve; an action cannot.
  */
 export async function logSpend(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const settings = await requireCompleteSettings();
+  const settings = await getSettings();
+  if (!settings.isComplete) {
+    return {
+      status: "error",
+      message:
+        "Choose your currency and time zone before logging a spend, on the account screen.",
+    };
+  }
 
   const rawNote = String(formData.get("note") ?? "").trim();
   const parsed = logSpendSchema.safeParse({

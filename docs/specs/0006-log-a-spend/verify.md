@@ -168,3 +168,36 @@ where a throw becomes the error boundary and there is no form to preserve.
 Both shared test accounts were read back and are exactly as they were found:
 account A on `USD` / `America/New_York`, account B on `JPY` / `Asia/Tokyo`, both
 with zero transactions and zero hidden categories.
+
+### Finding 1: resolved · 2026-08-26
+
+Fixed in `actions/transactions.ts`. The action now narrows with `getSettings()`
+and returns a `FormState` when the profile is incomplete, instead of calling
+`requireCompleteSettings()`, which throws.
+
+The reproduction was run before and after. Before: the page was replaced, the
+amount and note were gone, and the text named `proxy.ts`. After: the form is
+still on screen, `amount` is still `3.00`, the note is still there, and the
+message reads "Choose your currency and time zone before logging a spend, on the
+account screen." Nothing was written in either case, which was never the broken
+part.
+
+One competing explanation was ruled out rather than assumed. The same message
+could have come from the page's own call during the re-render that follows an
+action. A plain GET of `/` with an incomplete profile was tried on its own: it
+redirects to `/setup`, so the layout gate handles that path and the page's call
+is never reached. The action was the only thrower.
+
+A regression test now covers it, in `tests/e2e/log-spend.signed.spec.ts`. It was
+checked against the old code and fails there, so it is a real guard rather than
+a test that passes either way.
+
+Sibling check: no other server action calls a guard that throws.
+`requireCompleteSettings()` is left in place at its four remaining call sites,
+all page renders, where a throw correctly becomes the error boundary and there
+is no form to preserve. `requireUser()` redirects rather than throws, so the
+auth actions never had this problem.
+
+**AC-9 and AC-10 are now met.** With Finding 1 closed, all fourteen acceptance
+criteria pass. The steps still unticked above are the ones never attempted, not
+failures; they are listed with reasons in the table above.

@@ -3,6 +3,15 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { SEED_SPENDING, seedDate } from "./signed-in";
 
+// Playwright does not read `.env.local`, and the completeness test below signs
+// the second account in directly. Loaded here for the same reason the signed in
+// setup loads it.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // Absent in CI, which supplies the same values as real environment variables.
+}
+
 /**
  * Logging a spend, driven signed in against the real backend.
  *
@@ -190,5 +199,125 @@ test.describe("log a spend", () => {
     await expect(page.getByText("digits and at most one dot")).toBeVisible();
 
     expect(await violationsOn(page)).toEqual([]);
+  });
+});
+
+/**
+ * The regression guard for the incomplete profile bug.
+ *
+ * `logSpend` used to open with `requireCompleteSettings()`, which throws. In an
+ * action a throw escapes to the route error boundary: the whole page is
+ * replaced, everything typed is lost, and the message shown was the one written
+ * for whoever maintains this code, naming `proxy.ts`. Nothing was ever written,
+ * so the security half was fine and the failure was invisible to every test.
+ *
+ * This is the shape of test that catches it: render the form while the profile
+ * is complete, so the layout's redirect has already run and passed, then make
+ * the profile incomplete without reloading. No layout runs for a server action,
+ * so only the action's own check can catch it.
+ *
+ * It mutates the second test account's profile and puts it back, the same
+ * pattern `tests/integration/locale-guards.test.ts` uses and for the same
+ * reason: nothing else clears a currency, which is exactly why this path needs
+ * a test of its own.
+ */
+test.describe("the profile completeness guard inside the action", () => {
+  test("refuses in plain words and keeps what you typed", async ({
+    browser,
+  }) => {
+    const baseUrl = process.env.NEXT_PUBLIC_INSFORGE_URL!;
+    const anonKey = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!;
+
+    const signIn = await fetch(`${baseUrl}/api/auth/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: anonKey },
+      body: JSON.stringify({
+        email: process.env.INSFORGE_TEST_EMAIL_B,
+        password: process.env.INSFORGE_TEST_PASSWORD,
+      }),
+    });
+    const token = (await signIn.json()).accessToken as string;
+
+    const profiles = async (init?: RequestInit) => {
+      const res = await fetch(
+        `${baseUrl}/api/database/records/profiles?select=currency`,
+        {
+          ...init,
+          headers: {
+            "Content-Type": "application/json",
+            apikey: anonKey,
+            Authorization: `Bearer ${token}`,
+            Prefer: "return=representation",
+          },
+        },
+      );
+      const body = await res.text();
+      return body ? JSON.parse(body) : undefined;
+    };
+
+    const [before] = (await profiles()) as { currency: string }[];
+
+    const context = await browser.newContext();
+    await context.addCookies([
+      {
+        name: "insforge_access_token",
+        value: token,
+        domain: "localhost",
+        path: "/",
+        expires: -1,
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax",
+      },
+    ]);
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/");
+      await expect(page.getByLabel("Amount")).toBeVisible();
+
+      const category = await page
+        .locator("select option")
+        .nth(1)
+        .getAttribute("value");
+      await page.getByLabel("Amount").fill("3.00");
+      await page.getByLabel("Category").selectOption(category!);
+      await page.getByLabel("Note").fill("kept through the refusal");
+
+      await profiles({
+        method: "PATCH",
+        body: JSON.stringify({ currency: null }),
+      });
+
+      await page.getByRole("button", { name: "Log spend" }).click();
+
+      await expect(
+        page.getByText("Choose your currency and time zone"),
+      ).toBeVisible();
+
+      // The form is still there, which is the part the old behaviour lost.
+      await expect(page.getByLabel("Amount")).toHaveValue("3.00");
+      await expect(page.getByLabel("Note")).toHaveValue(
+        "kept through the refusal",
+      );
+
+      // No internal message may ever reach a person.
+      const body = await page.locator("body").innerText();
+      expect(body).not.toContain("proxy.ts");
+      expect(body).not.toContain("Something broke");
+
+      // And still nothing written, which was never the broken part.
+      const rows = await fetch(
+        `${baseUrl}/api/database/records/transactions?select=id`,
+        { headers: { apikey: anonKey, Authorization: `Bearer ${token}` } },
+      ).then((r) => r.json());
+      expect(rows).toHaveLength(0);
+    } finally {
+      await profiles({
+        method: "PATCH",
+        body: JSON.stringify({ currency: before.currency }),
+      });
+      await context.close();
+    }
   });
 });
