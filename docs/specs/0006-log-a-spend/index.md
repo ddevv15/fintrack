@@ -1,7 +1,7 @@
 # 0006. Log a spend
 
 **Date**: 2026-08-26
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
