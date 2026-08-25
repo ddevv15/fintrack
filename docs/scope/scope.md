@@ -16,7 +16,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | done |
 | 5 | Sign in and your account | Release 1 | done |
-| 6 | Log a spend | Release 1 | planned |
+| 6 | Log a spend | Release 1 | in-progress |
 | 7 | This month's transactions | Release 1 | planned |
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | planned |
@@ -96,9 +96,16 @@ One account that is yours, so your data follows you from laptop to phone. No sha
 _Shipped with 19 of the 50 verify steps owed rather than passing. Four of them need a screen that renders money or a date, so they wait for feature 6; the rest need a week of real elapsed time, a second browser, or blocking Arcjet at the network level. Google sign in has since been proved on the production deployment, along with the attempt limiter running live there. Three defects were found and fixed during verification: the time zone picker offered names the database refuses, `/forgot-password` gave away which addresses have accounts by how long it took, and a refused reset email was reported as success. `/test` has since closed the attempt limiting gap a fresh model review flagged. Step by step detail in the spec's [verify.md](../specs/0004-sign-in-and-your-account/verify.md)._
 
 ### 6. Log a spend
+spec [0006](../specs/0006-log-a-spend/index.md) · code in `app/(app)/page.tsx`, `actions/transactions.ts`, `components/transactions/`, `lib/money.ts`, `lib/categories.ts`
 The screen you will use more than any other: amount, date, category, optional note, saved in seconds.
 **Done when:** you can add a spend in a few seconds from the main screen, it saves to your account, and a missing amount or category is caught before saving rather than after.
+- [x] Design it (spec): `/architect log a spend`
 - [ ] Build it: `/develop log a spend`
+  - [ ] The parse and its proof: `parseAmount()` in `lib/money.ts` by string only, the exhaustive tests across a zero, two, and three decimal currency, and the scan that keeps every money conversion in one file (AC-2, AC-3, AC-4, AC-5, AC-13)
+  - [ ] The save path: the spend category read, the Zod schema, and the `logSpend` action narrowing the profile itself rather than trusting the layout (AC-1, AC-6, AC-7, AC-9, AC-14)
+  - [ ] The screen: the form on the existing primitives, the Log tab replacing its placeholder, and the submit control disabled while a save is in flight (AC-1, AC-11, AC-12)
+  - [ ] The states that make it trustworthy: the confirmation naming what was actually stored, the database refusals in plain words, and the accessibility pass (AC-8, AC-10, AC-12)
+- [ ] Verify it: `/check verify log a spend`
 
 ### 7. This month's transactions
 A plain list of what you logged this month, so you can spot a mistake and fix it.
