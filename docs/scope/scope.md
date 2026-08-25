@@ -15,7 +15,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | done |
-| 5 | Sign in and your account | Release 1 | done |
+| 5 | Sign in and your account | Release 1 | in-progress |
 | 6 | Log a spend | Release 1 | planned |
 | 7 | This month's transactions | Release 1 | planned |
 | 8 | Where your money went | Release 1 | planned |
@@ -92,8 +92,8 @@ One account that is yours, so your data follows you from laptop to phone. No sha
   - [x] Account settings, deletion through a database function, attempt limiting on the three public forms, and the proving tests (AC-11, AC-12, AC-16, AC-17, AC-18, AC-19)
   - [x] Finish the attempt limiting: the two mail senders and the three code submitters, with the two signed in actions keyed on the account as well as the source (AC-8)
 - [x] Verify it: `/check verify sign in and your account`
-- [ ] Test it: `/test sign in and your account`
-_Shipped with 19 of the 50 verify steps owed rather than passing. Four of them need a screen that renders money or a date, so they wait for feature 6; the rest need Google credentials in the dashboard, a week of real elapsed time, a second browser, or blocking Arcjet at the network level. Three defects were found and fixed during verification: the time zone picker offered names the database refuses, `/forgot-password` gave away which addresses have accounts by how long it took, and a refused reset email was reported as success. `/test` is still open. Step by step detail in the spec's [verify.md](../specs/0004-sign-in-and-your-account/verify.md)._
+- [x] Test it: `/test sign in and your account`
+_Shipped with 19 of the 50 verify steps owed rather than passing. Four of them need a screen that renders money or a date, so they wait for feature 6; the rest need Google credentials in the dashboard, a week of real elapsed time, a second browser, or blocking Arcjet at the network level. Three defects were found and fixed during verification: the time zone picker offered names the database refuses, `/forgot-password` gave away which addresses have accounts by how long it took, and a refused reset email was reported as success. `/test` has since closed the attempt limiting gap a fresh model review flagged. Step by step detail in the spec's [verify.md](../specs/0004-sign-in-and-your-account/verify.md)._
 
 ### 6. Log a spend
 The screen you will use more than any other: amount, date, category, optional note, saved in seconds.
