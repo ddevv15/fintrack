@@ -187,3 +187,71 @@ this page would lose nothing but decoration.
 The same caveat as the design system pass applies: nobody has listened to this
 route with a real screen reader yet, so AC-12 is satisfied by the automated and
 tree level checks but not yet by ear.
+
+---
+
+# Accessibility pass: log a spend
+
+Spec [0006](specs/0006-log-a-spend/index.md) AC-8, AC-9.
+Route walked: `/`, signed in, at 420px and at desktop width.
+Date: 2026-08-26 · Chromium, light and dark.
+
+The form is built entirely from primitives feature 4 already checked, so most of
+the work here was inherited: `Field` owns every label, id, and
+`aria-describedby` link, and no control in this form can render without them.
+What is new, and what this pass is actually about, is the confirmation.
+
+## Automated, and passing
+
+| Check | Result |
+|---|---|
+| `axe` WCAG 2.2 AA, `/`, resting state | 0 violations |
+| `axe` WCAG 2.2 AA, `/`, showing a field error | 0 violations |
+| Console errors and warnings on load and on submit | none |
+
+Both axe runs live in `tests/e2e/log-spend.signed.spec.ts`, so they run on every
+push rather than only when someone remembers. Running them signed in is the
+point: there is no version of this screen a visitor can reach.
+
+## A finding worth carrying to the other forms
+
+The confirmation deliberately does **not** use the `empty:hidden` class that
+`Field` and `FormError` use on their live regions. That utility resolves to
+`display: none`, which removes the element from the accessibility tree, so the
+region is absent during exactly the window it needs to be observed in and then
+appears with its content already in place. Playwright's `getByRole("status")`
+could not find the empty region at all, and it reads the same tree a screen
+reader does, which is how this surfaced.
+
+This form reserves the line instead. `Field` and `FormError` still use the old
+pattern, and they were shipped against the reasoning that a live region must
+exist before its content changes, which is right; the `empty:hidden` part
+quietly undoes it. Worth revisiting in spec 0003 rather than patched here.
+
+## What the accessibility tree exposes
+
+| Element | Exposed as |
+|---|---|
+| Amount | textbox, labelled "Amount", described by its hint then its error, `aria-invalid` when refused |
+| Category | combobox, labelled "Category", placeholder option disabled |
+| Date | textbox with a date picker, labelled "Date", `max` set to today in your zone |
+| Note | textbox, labelled "Note", described by "Optional." |
+| Submit | button, disabled while saving, its label changing to "Saving..." rather than becoming a spinner |
+| Confirmation | `status` region, present and empty before a save, holding the stored amount after one |
+
+Focus after a successful save returns to the amount field, and the confirmation
+never takes focus, so a keyboard user is left ready to type the next entry
+rather than somewhere they have to navigate out of.
+
+## Owed: the human listen-through
+
+| # | To check | Why the tree cannot answer it |
+|---|---|---|
+| 1 | Confirm the confirmation is actually spoken on a save, and not swallowed | Whether a `status` region announces at the moment it changes is the reader's call, and is the exact thing the `empty:hidden` finding above is about |
+| 2 | Confirm the amount is read as money rather than digit by digit | Number and currency handling is reader and verbosity dependent |
+| 3 | Confirm a refused save announces the field error without the person having to hunt for it | Two live regions update at once, the summary and the field, and the order they are read in is not something the tree fixes |
+| 4 | Confirm the native date picker is usable by keyboard on a phone reader | Platform pickers vary, and this is the one control not built from our own primitives |
+
+The same caveat as the earlier passes applies: nobody has listened to this route
+with a real screen reader yet, so AC-8 is satisfied by the automated and tree
+level checks but not yet by ear.

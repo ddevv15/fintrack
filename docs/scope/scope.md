@@ -100,11 +100,11 @@ spec [0006](../specs/0006-log-a-spend/index.md) · code in `app/(app)/page.tsx`,
 The screen you will use more than any other: amount, date, category, optional note, saved in seconds.
 **Done when:** you can add a spend in a few seconds from the main screen, it saves to your account, and a missing amount or category is caught before saving rather than after.
 - [x] Design it (spec): `/architect log a spend`
-- [ ] Build it: `/develop log a spend`
-  - [ ] The parse and its proof: `parseAmount()` in `lib/money.ts` by string only, the exhaustive tests across a zero, two, and three decimal currency, and the scan that keeps every money conversion in one file (AC-2, AC-3, AC-4, AC-5, AC-13)
-  - [ ] The save path: the spend category read, the Zod schema, and the `logSpend` action narrowing the profile itself rather than trusting the layout (AC-1, AC-6, AC-7, AC-9, AC-14)
-  - [ ] The screen: the form on the existing primitives, the Log tab replacing its placeholder, and the submit control disabled while a save is in flight (AC-1, AC-11, AC-12)
-  - [ ] The states that make it trustworthy: the confirmation naming what was actually stored, the database refusals in plain words, and the accessibility pass (AC-8, AC-10, AC-12)
+- [x] Build it: `/develop log a spend`
+  - [x] The parse and its proof: `parseAmount()` in `lib/money.ts` by string only, the exhaustive tests across a zero, two, and three decimal currency, and the scan that keeps every money conversion in one file (AC-2, AC-3, AC-4, AC-5, AC-13)
+  - [x] The save path: the spend category read, the Zod schema, and the `logSpend` action narrowing the profile itself rather than trusting the layout (AC-1, AC-6, AC-7, AC-9, AC-14)
+  - [x] The screen: the form on the existing primitives, the Log tab replacing its placeholder, and the submit control disabled while a save is in flight (AC-1, AC-11, AC-12)
+  - [x] The states that make it trustworthy: the confirmation naming what was actually stored, the database refusals in plain words, and the accessibility pass (AC-8, AC-10, AC-12)
 - [ ] Verify it: `/check verify log a spend`
 
 ### 7. This month's transactions
