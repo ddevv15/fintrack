@@ -15,7 +15,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 2 | Coding standards and tooling | Foundation | done |
 | 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | done |
-| 5 | Sign in and your account | Release 1 | in-progress |
+| 5 | Sign in and your account | Release 1 | done |
 | 6 | Log a spend | Release 1 | planned |
 | 7 | This month's transactions | Release 1 | planned |
 | 8 | Where your money went | Release 1 | planned |
