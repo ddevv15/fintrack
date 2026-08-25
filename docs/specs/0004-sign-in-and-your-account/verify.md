@@ -22,7 +22,7 @@ Build step 11, the rest of the attempt limiting, has since been built, so the fi
 ### Signing in and staying signed in
 
 - [x] Sign out, then sign in with the same address and password → same account, same home → AC-3
-- [ ] Sign in with Google → same home, and a brand new Google account stops at `/setup` first → AC-3, AC-14
+- [x] Sign in with Google → same home, and a brand new Google account stops at `/setup` first → AC-3, AC-14 _(proved on the production deployment: POST /sign-up → /auth/callback → / → /setup → POST /setup → /, with the profile carrying the name from the Google account)_
 - [ ] Close the browser entirely, reopen it, visit `/` → still signed in, no sign in wall → AC-4
 - [ ] Leave it a week and return → still signed in → AC-4
 - [x] Sign out from `/settings` → every protected page redirects to sign in on the next request → AC-5
