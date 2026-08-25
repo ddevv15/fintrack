@@ -115,7 +115,7 @@ The screen that answers your actual question: total spent this month, split by c
   - [x] The screen itself: the ranked row with its bar, the route, the currency from settings, and the Breakdown tab switched live (AC-2, AC-5, AC-10, AC-12, AC-14)
   - [x] The states that make it trustworthy: the empty month, and the completeness guard that refuses to show a total it cannot prove (AC-8, AC-9)
   - [x] Prove it: unit tests for the rounding and the ordering, the axe check on the route, and route protection (AC-3, AC-4, AC-5, AC-12, AC-13)
-- [ ] Verify it: `/check verify where your money went`
+- [x] Verify it: `/check verify where your money went`
 
 ## Release 2: make it yours, and keep it safe
 
