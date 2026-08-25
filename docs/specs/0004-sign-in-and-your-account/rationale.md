@@ -112,7 +112,7 @@ This is the deviation with a genuine security consequence, and it was put to the
 
 What the spec now does instead of pretending: AC-17 states which guarantee is on offer, the security model names it as deliberately weaker than the usual advice, and the screen says it in plain words to the person using it.
 
-One thing this deviation created that the spec had not accounted for: the password change is a mail sender reachable by any signed in session, and Arcjet was wired to sign in, sign up, and password reset only, because those were the three surfaces that existed when attempt limiting was specced. AC-8 now names the fourth, and build step 11 exists because the code does not yet meet it. Stating a criterion the build fails is the honest way round; trimming the criterion to match the code would have hidden it.
+One thing this deviation created that the spec had not accounted for: the password change is a mail sender reachable by any signed in session, and Arcjet was wired to sign in, sign up, and password reset only, because those were the three surfaces that existed when attempt limiting was specced. AC-8 now names the fourth, and build step 11 existed because the code did not yet meet it. Stating a criterion the build fails is the honest way round; trimming the criterion to match the code would have hidden it. Step 11 has since been built, and the criterion held rather than being quietly relaxed.
 
 ### 4. Account deletion is a database function, not an edge function (chosen, and better)
 

@@ -41,8 +41,8 @@ Server actions through `createAuthActions`, plus one Route Handler for the OAuth
 | Endpoint | Method | Key inputs | Key outputs | Auth | Key errors |
 |---|---|---|---|---|---|
 | `signUpWithPassword` (action) | POST | `email:string` (req), `password:string` min 12 (req), `displayName:string` (opt) | `{ needsVerification: true, email }` | public | invalid input, rate limited, taken address handled silently |
-| `verifyEmailCode` (action) | POST | `email:string` (req), `otp:string` 6 digits (req) | session cookies set, redirect target | public | code wrong or expired, rate limited (owed by build step 11) |
-| `resendVerification` (action) | POST | `email:string` (req) | `{ sent: true }` | public | rate limited (owed by build step 11; it sends mail on every call and is not limited yet) |
+| `verifyEmailCode` (action) | POST | `email:string` (req), `otp:string` 6 digits (req) | session cookies set, redirect target | public | code wrong or expired, rate limited (build step 11; wrong guesses are counted here, since InsForge does not count them) |
+| `resendVerification` (action) | POST | `email:string` (req) | `{ sent: true }` | public | rate limited (build step 11; it sends mail on every call, so it is limited per source) |
 | `signInWithPassword` (action) | POST | `email:string` (req), `password:string` (req) | session cookies set, redirect target | public | wrong credentials, unverified address, rate limited |
 | `initiateGoogleOAuth` (action) | POST | none | `{ url }`, `codeVerifier` stored server side | public | provider unavailable |
 | `/auth/callback` (route) | GET | `code` (req) from Google | redirect, session cookies set | public | exchange failed, user denied consent |

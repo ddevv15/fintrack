@@ -4,7 +4,7 @@ _Steps derived from spec 0004 acceptance criteria. `/check verify` runs these; `
 
 Four things were built differently from the spec, each agreed with the engineer during `/develop`. `/architect` has since ratified all four and amended spec 0004 in place, so the spec and the code now say the same thing and these steps check both at once. Why each one changed is in [rationale.md](rationale.md), under _Ratified at build time_. The notes below keep the short version where it helps somebody running the checklist.
 
-Some steps are expected to fail. Build step 11, the rest of the attempt limiting, is specced and not yet built, so AC-8 does not fully hold: five actions are unguarded, two that send mail and three that accept a six digit code. Those steps are marked below.
+Build step 11, the rest of the attempt limiting, has since been built, so the five steps that used to be marked as expected failures now pass. All eight actions that send mail or take a guessable value are behind the limiter, and the two signed in ones are keyed on the account as well as the source.
 
 ## UI / manual
 
@@ -56,10 +56,10 @@ Some steps are expected to fail. Build step 11, the rest of the attempt limiting
 - [x] With `ARCJET_KEY` set, submit sign in wrongly eleven times in a minute → a plain readable message, not an error page or a blank screen → AC-8
 - [x] Unset `ARCJET_KEY`, restart, sign in → succeeds, and the log carries the warning that limiting is off → AC-8
 - [ ] Block Arcjet at the network level, sign in → succeeds, and the failure is logged → AC-8
-- [x] With `ARCJET_KEY` set, request a password change code from `/settings` eleven times in a minute → **expected to fail until step 11**: it sends eleven emails → AC-8
-- [x] On `/verify`, press "Send another code" eleven times in a minute → **expected to fail until step 11**: it sends eleven emails → AC-8
-- [x] On `/reset-password`, submit a wrong six digit code eleven times in a minute → **expected to fail until step 11**: every guess is accepted for checking, and nothing here counts them → AC-8
-- [ ] Same against `/verify` and against the password change form on `/settings` → **expected to fail until step 11** → AC-8
+- [x] With `ARCJET_KEY` set, request a password change code from `/settings` eleven times in a minute → refused on the eleventh, keyed on the account → AC-8
+- [x] On `/verify`, press "Send another code" eleven times in a minute → refused on the eleventh → AC-8
+- [x] On `/reset-password`, submit a wrong six digit code eleven times in a minute → refused once the window is spent, so wrong guesses at a code are counted → AC-8
+- [ ] Same against `/verify` and against the password change form on `/settings` → `/verify` confirmed refused; the `/settings` code form is still unrun → AC-8
 - [ ] Separately, confirm on the test project whether InsForge refuses a run of wrong codes on its own side, and record the answer in build step 11. Do not assume either way → AC-8
 
 ## Value sourcing
@@ -93,7 +93,7 @@ One per row of the spec's table. These are the ones that fail quietly if a value
 - **AC-5** sign out closes everything · covered
 - **AC-6** no session renders nothing · covered by manual steps and 23 automated e2e checks
 - **AC-7** identical reset response, used and expired codes · covered, the code flow now in the spec
-- **AC-8** attempt limiting, failing open · covered by eight steps including the outage case. Five are expected to fail until build step 11 lands: the two mail senders and the three code submitters. The guess window is the serious one, since recovery and the password change both rest on a code being hard to guess
+- **AC-8** attempt limiting, failing open · covered by eight steps including the outage case, and by `tests/unit/attempt-limit.test.ts`, which pins the fail open branch. The two mail senders and the code submitters are all limited now. The guess window was the serious one, since recovery and the password change both rest on a code being hard to guess, and it is the half InsForge does not cover on its own side
 - **AC-9** minor units everywhere · covered by the unit suite and the literal `100` search
 - **AC-10** one integer, three currencies · covered by unit tests and a manual render
 - **AC-11** one currency list, database agrees · covered by the drift test in the integration suite
