@@ -81,13 +81,17 @@ export default async function BreakdownPage() {
 
       {/* Labelled through a real heading rather than a hidden first <li>: an
           item inside the list would be counted in the "list, N items" a screen
-          reader announces, so the label would corrupt the count it precedes. */}
-      <section aria-labelledby="breakdown-heading">
+          reader announces, so the label would corrupt the count it precedes.
+
+          The label sits on the <ul> itself rather than on a wrapper, so the
+          list is announced by name. Without it this page has two unnamed lists,
+          the nav and this one, and nothing tells them apart. */}
+      <div>
         <h2 id="breakdown-heading" className="sr-only">
           Spending by category, largest first
         </h2>
 
-        <ul className="flex flex-col">
+        <ul aria-labelledby="breakdown-heading" className="flex flex-col">
           {breakdown.rows.map((share) => (
             <BreakdownRow
               key={share.categoryId}
@@ -96,7 +100,7 @@ export default async function BreakdownPage() {
             />
           ))}
         </ul>
-      </section>
+      </div>
     </div>
   );
 }

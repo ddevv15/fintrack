@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { currencySymbol, formatAmount } from "@/lib/money";
+import { currencySymbol, formatAmount, percentShares } from "@/lib/money";
 
 /**
  * Locks rule 1 of spec 0001, as spec 0004 corrects it: amounts are whole minor
@@ -95,5 +95,71 @@ describe("currencySymbol", () => {
       expect(symbol).not.toBe("");
       expect(symbol).not.toMatch(/\d/);
     }
+  });
+});
+
+/**
+ * Locks AC-4 of spec 0005: the shares shown against a month add to exactly 100.
+ *
+ * The rounding is one of the two things in the breakdown most likely to be
+ * subtly wrong (the ordering is the other), which is why it lives in a pure
+ * function and is tested here rather than through a rendered screen.
+ */
+describe("percentShares", () => {
+  it("gives a single category the whole month", () => {
+    expect(percentShares([4200], 4200)).toEqual([100]);
+  });
+
+  it("adds to 100 where naive rounding would add to 99", () => {
+    // Three equal thirds floor to 33 each, which is 99. The largest remainder
+    // method hands the spare point out rather than losing it.
+    expect(percentShares([1, 1, 1], 3)).toEqual([34, 33, 33]);
+  });
+
+  it("gives a tied spare point to the row that sorts first", () => {
+    // All three remainders are identical, so the rule that decides is position,
+    // not chance. The caller sorts before calling, so first here means the
+    // biggest category, and the ranking and the rounding cannot disagree.
+    const [first, ...rest] = percentShares([1, 1, 1], 3);
+    expect(first).toBe(34);
+    expect(rest).toEqual([33, 33]);
+  });
+
+  it("adds to 100 when every share needs rounding", () => {
+    const shares = percentShares([1, 1, 1, 1, 1, 1, 1], 7);
+    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+    // Two spare points, both landing on the earliest rows.
+    expect(shares).toEqual([15, 15, 14, 14, 14, 14, 14]);
+  });
+
+  it("reports a share under half a percent as zero rather than rounding it up", () => {
+    // 0.01% is real spending and still rounds to nothing. Zero is the honest
+    // number; the row renders it as "<1%" so it never reads as a bug. Forcing
+    // it to 1 would have to take that point from the 99.99% category.
+    expect(percentShares([9999, 1], 10000)).toEqual([100, 0]);
+  });
+
+  it("still adds to 100 when a category rounds away entirely", () => {
+    const shares = percentShares([9999, 1], 10000);
+    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+  });
+
+  it("has no shares to give for no categories", () => {
+    expect(percentShares([], 0)).toEqual([]);
+  });
+
+  it("refuses a total that is not the sum of its own amounts", () => {
+    // This means the caller totalled one set of rows and split another. A
+    // column of shares against the wrong total is exactly the confidently wrong
+    // figure rule 3 of AGENTS.md exists to prevent.
+    expect(() => percentShares([100, 200], 400)).toThrow(/sum of their own/);
+  });
+
+  it("refuses an amount that is not whole minor units", () => {
+    expect(() => percentShares([10.5, 89.5], 100)).toThrow(/whole/);
+  });
+
+  it("refuses to split a total of nothing", () => {
+    expect(() => percentShares([0, 0], 0)).toThrow(/total of zero/);
   });
 });

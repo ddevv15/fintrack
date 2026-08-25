@@ -31,8 +31,34 @@ export default defineConfig({
     {
       name: "chromium",
       testMatch: /.*\.spec\.ts/,
+      // The signed in suites need a session and a seeded month, so they run in
+      // their own project below rather than against a fresh browser.
+      testIgnore: /.*\.signed\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["preflight"],
+    },
+
+    // Signs the first test account in, writes its cookies, and seeds a month of
+    // spending. Its teardown takes that month back out, because the accounts
+    // are fixed and reused and rows left in the current month would change what
+    // the next run adds up to.
+    {
+      name: "signed-in-setup",
+      testMatch: /signed-in\.setup\.ts/,
+      teardown: "signed-in-teardown",
+    },
+    { name: "signed-in-teardown", testMatch: /signed-in\.teardown\.ts/ },
+    {
+      name: "chromium-signed-in",
+      testMatch: /.*\.signed\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        // Kept as a literal rather than imported from tests/e2e/signed-in.ts:
+        // this config is loaded before any path alias or transform is set up,
+        // so importing that module here fails before a test runs.
+        storageState: "tests/e2e/.auth/account-a.json",
+      },
+      dependencies: ["preflight", "signed-in-setup"],
     },
   ],
 

@@ -131,3 +131,59 @@ requires labelling; this is the measurement behind it, and it is stronger than
   trade in spec 0003; feature 6 may revisit it.
 - **Native `<select>`**. It cannot show a colour swatch per option, so the
   category picker is names only.
+
+---
+
+# Accessibility pass: where your money went
+
+Spec [0005](specs/0005-where-your-money-went/index.md) AC-5, AC-12.
+Route walked: `/breakdown`, signed in, against a seeded month of three
+categories at 60, 30, and 10 percent.
+Date: 2026-08-25 · Chromium, light and dark.
+
+This is the first route whose accessibility could not be checked from the
+gallery. There is no version of it a visitor can reach, so the checks run behind
+a real session, built by `tests/e2e/signed-in.setup.ts` and asserted in
+`tests/e2e/breakdown.signed.spec.ts`.
+
+## Automated, and passing
+
+| Check | Result |
+|---|---|
+| `axe` WCAG 2.2 AA, `/breakdown`, light | 0 violations |
+| `axe` WCAG 2.2 AA, `/breakdown`, dark | 0 violations |
+| Tab order | skip link, then the three nav tabs, then nothing |
+| Rows and bars in the tab order | none, which is correct: they are not interactive |
+| Bars exposed to assistive technology | none, all three `aria-hidden` |
+| The breakdown list carries an accessible name | yes, "Spending by category, largest first" |
+
+## What the accessibility tree exposes
+
+- The heading is a level 1 naming the month and year, for example "August 2026".
+- The total is a `<dl>` pair, so "Total spent" and the figure are related to
+  each other rather than merely adjacent.
+- The category list is a named `list` of three `listitem`s. Each row reads as
+  its category name, its amount, and its share, in that order.
+- The bars are `aria-hidden`, so a reader hears the share once, as words, and
+  never as a second announcement of a rectangle.
+- The Breakdown tab carries `aria-current="page"`.
+
+**The colour finding above is honoured.** The measurement in the design system
+pass showed that under deuteranopia the ten category colours collapse into about
+four groups, and concluded that feature 8 must label every segment directly
+rather than lean on a legend. It does: every row prints its category name in
+text, and there is no legend anywhere on the screen. Removing all colour from
+this page would lose nothing but decoration.
+
+## Owed: the human listen-through
+
+| # | To check | Why the tree cannot answer it |
+|---|---|---|
+| 1 | Confirm each row is read as one unit, name then amount then share, rather than as three loose fragments | Row grouping is the reader's call, not the tree's |
+| 2 | Confirm the list announces its name and its count on entry | Whether `aria-labelledby` on a `<ul>` is spoken varies by reader |
+| 3 | Confirm the `<1%` share is spoken usefully rather than as "less than one percent sign" | Punctuation handling is reader and verbosity dependent |
+| 4 | Confirm the empty state is reached and read without hunting | It replaces the list entirely, so nothing announces the change |
+
+The same caveat as the design system pass applies: nobody has listened to this
+route with a real screen reader yet, so AC-12 is satisfied by the automated and
+tree level checks but not yet by ear.
