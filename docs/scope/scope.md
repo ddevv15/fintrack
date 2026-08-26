@@ -109,16 +109,16 @@ The screen you will use more than any other: amount, date, category, optional no
 _All fourteen acceptance criteria pass. Verification found one defect and it was fixed: the action guarded the profile with a function that throws, so an incomplete profile produced an internal error page instead of a message, and lost what you had typed. Nothing was ever written, which is why no test had caught it. The screen reader listen through is owed, as on every earlier feature, and is tracked in [accessibility-pass.md](../accessibility-pass.md). Step by step detail in the spec's [verify.md](../specs/0006-log-a-spend/verify.md)._
 
 ### 7. This month's transactions
-spec [0007](../specs/0007-this-months-transactions/index.md)
+spec [0007](../specs/0007-this-months-transactions/index.md) · code in `app/(app)/transactions/`, `components/transactions/`, `actions/transactions.ts`, `lib/month.ts`, `lib/transactions.ts`, `lib/flash.ts`, `proxy.ts`
 A plain list of what you logged this month, so you can spot a mistake and fix it.
 **Done when:** the month's entries show newest first with a running total, you can edit or delete any one of them, and an empty month says so plainly instead of looking broken.
 - [x] Design it (spec): `/architect this month's transactions`
-- [ ] Build it: `/develop this month's transactions`
-  - [ ] The month read, on one window and filter both this screen and the breakdown import, with the completeness guard (AC-1, AC-2, AC-3, AC-5, AC-7)
-  - [ ] The screen itself: the ranked rows, the month total, the one live region it speaks from, and the empty month (AC-1, AC-3, AC-4, AC-6, AC-21, AC-24)
-  - [ ] Editing on its own route, and the single use flash that carries its confirmation back to the list (AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-19, AC-20, AC-22)
-  - [ ] Deleting from the row, confirmed in place, with focus and the announcement handled once the row is gone (AC-8, AC-16, AC-17, AC-18, AC-19, AC-21, AC-22, AC-24)
-  - [ ] Prove it: the ordering and summing tests, the two loaders agreeing on a month, no repeated confirmation on reload, and the axe check on both routes (AC-7, AC-13, AC-15, AC-23)
+- [x] Build it: `/develop this month's transactions`
+  - [x] The month read, on one window and filter both this screen and the breakdown import, with the completeness guard (AC-1, AC-2, AC-3, AC-5, AC-7)
+  - [x] The screen itself: the ranked rows, the month total, the one live region it speaks from, and the empty month (AC-1, AC-3, AC-4, AC-6, AC-21, AC-24)
+  - [x] Editing on its own route, and the single use flash that carries its confirmation back to the list (AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-19, AC-20, AC-22)
+  - [x] Deleting from the row, confirmed in place, with focus and the announcement handled once the row is gone (AC-8, AC-16, AC-17, AC-18, AC-19, AC-21, AC-22, AC-24)
+  - [x] Prove it: the ordering and summing tests, the two loaders agreeing on a month, no repeated confirmation on reload, and the axe check on both routes (AC-7, AC-13, AC-15, AC-23)
 - [ ] Verify it: `/check verify this month's transactions`
 
 ### 8. Where your money went
