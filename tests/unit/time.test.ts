@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   currentMonthRange,
+  formatMonth,
   formatPlainDate,
   monthRange,
   timeZoneNames,
@@ -181,5 +182,32 @@ describe("timeZoneNames", () => {
     const offered = timeZoneNames();
     expect(new Set(offered).size).toBe(offered.length);
     expect([...offered]).toEqual([...offered].sort());
+  });
+});
+
+/**
+ * Locks AC-11 of spec 0005: the breakdown heading names the month and the year,
+ * and it is this module that produces it rather than an Intl call in the page.
+ */
+describe("formatMonth", () => {
+  it("names the month and the year", () => {
+    expect(formatMonth("2026-08-01")).toBe("August 2026");
+  });
+
+  it("gives the same month for any day inside it", () => {
+    expect(formatMonth("2026-08-31")).toBe("August 2026");
+    expect(formatMonth("2026-08-15")).toBe("August 2026");
+  });
+
+  it("does not slip into the previous month on the first of the month", () => {
+    // The reason this formats in UTC. A PlainDate parses to midnight UTC, and
+    // rendering that instant in a zone behind UTC lands on 31 December, which
+    // would head a screen of January's money with "December 2025".
+    expect(formatMonth("2026-01-01")).toBe("January 2026");
+  });
+
+  it("refuses anything that is not a plain calendar day", () => {
+    expect(() => formatMonth("2026-08")).toThrow(/plain date/);
+    expect(() => formatMonth("August 2026")).toThrow(/plain date/);
   });
 });

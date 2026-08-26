@@ -18,7 +18,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 5 | Sign in and your account | Release 1 | done |
 | 6 | Log a spend | Release 1 | planned |
 | 7 | This month's transactions | Release 1 | planned |
-| 8 | Where your money went | Release 1 | planned |
+| 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | planned |
 | 10 | Search and filter your history | Release 2 | planned |
 | 11 | Export and backup | Release 2 | planned |
@@ -105,10 +105,17 @@ A plain list of what you logged this month, so you can spot a mistake and fix it
 **Done when:** the month's entries show newest first with a running total, you can edit or delete any one of them, and an empty month says so plainly instead of looking broken.
 - [ ] Build it: `/develop this month's transactions`
 
-### 8. Where your money went · needs a decision
+### 8. Where your money went
+spec [0005](../specs/0005-where-your-money-went/index.md) · code in `app/(app)/breakdown/`, `components/breakdown/`, `lib/breakdown.ts`
 The screen that answers your actual question: total spent this month, split by category, biggest first.
 **Done when:** the month total and the split by category are correct against the logged entries, the biggest category is obvious at a glance, and a month with no data reads as empty rather than broken. (basis: this is the core value screen and how you show the split is a real design call, so it earns a spec)
-- [ ] Design it (spec): `/architect where your money went`
+- [x] Design it (spec): `/architect where your money went`
+- [x] Build it: `/develop where your money went`
+  - [x] The month maths and the query under it: `formatMonth()`, `percentShares()`, the proved embedding, `monthSpendRowSchema`, and `loadMonthBreakdown()` (AC-1, AC-2, AC-3, AC-4, AC-6, AC-7, AC-11)
+  - [x] The screen itself: the ranked row with its bar, the route, the currency from settings, and the Breakdown tab switched live (AC-2, AC-5, AC-10, AC-12, AC-14)
+  - [x] The states that make it trustworthy: the empty month, and the completeness guard that refuses to show a total it cannot prove (AC-8, AC-9)
+  - [x] Prove it: unit tests for the rounding and the ordering, the axe check on the route, and route protection (AC-3, AC-4, AC-5, AC-12, AC-13)
+- [x] Verify it: `/check verify where your money went`
 
 ## Release 2: make it yours, and keep it safe
 
@@ -187,6 +194,7 @@ Out of scope for the current build pass, kept so the plan stays honest.
 - **Savings goals**: put money aside toward a target and track it · needs a decision
 - **Install on your phone**: keep it on the home screen and log offline · needs a decision
 - **Written insights**: the app tells you what changed and why it matters · needs a decision
+- **How dates read where you are**: the profile carries a currency and a timezone but no locale, so every date and month name is formatted `en-US` for everyone · needs a decision · from spec 0005
 - **Real time updates**: screens refresh themselves the moment data changes elsewhere, rather than on the next load · needs a decision
 
 ## Legend

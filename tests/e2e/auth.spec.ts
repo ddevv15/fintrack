@@ -36,8 +36,14 @@ const PUBLIC_SCREENS = [
   { path: "/reset-password", heading: "Set a new password" },
 ] as const;
 
-/** Screens that must not render for a visitor with no session (AC-6). */
-const PROTECTED_PATHS = ["/", "/settings", "/setup"] as const;
+/**
+ * Screens that must not render for a visitor with no session (AC-6).
+ *
+ * `/breakdown` is here for spec 0005 AC-13 as well: it is the screen that shows
+ * what you spent and on what, so it leaking any part of itself to a request
+ * with no session is the worst version of this failure.
+ */
+const PROTECTED_PATHS = ["/", "/settings", "/setup", "/breakdown"] as const;
 
 async function violationsOn(page: Page) {
   const results = await new AxeBuilder({ page })
@@ -96,6 +102,20 @@ test.describe("the doors are shut", () => {
     // the text rather than the status is the point: a redirect that still
     // streamed a page body would pass a status check and fail this one.
     expect(await page.content()).not.toContain("Delete your account");
+    expect(response?.url()).toMatch(/\/sign-in$/);
+  });
+
+  test("no money figure appears on the way out of the breakdown (spec 0005 AC-13)", async ({
+    page,
+  }) => {
+    const response = await page.goto("/breakdown");
+
+    // Same reasoning as the settings check above, applied to the screen where
+    // a leak would be worst. A body that streamed before redirecting would
+    // still carry the heading and a currency glyph, so both are checked.
+    const body = await page.content();
+    expect(body).not.toContain("Where your money went");
+    expect(body).not.toContain("Total spent");
     expect(response?.url()).toMatch(/\/sign-in$/);
   });
 });

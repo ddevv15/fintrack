@@ -68,3 +68,6 @@ next-env.d.ts
 .roo
 .trae
 .windsurf
+
+# playwright signed in session state, rebuilt by tests/e2e/signed-in.setup.ts
+/tests/e2e/.auth/
