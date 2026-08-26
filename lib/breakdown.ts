@@ -1,13 +1,12 @@
-import { createInsforgeServer } from "@/lib/insforge-server";
+import { currentSpendMonth, readSpendMonth } from "@/lib/month";
 import { percentShares, type MinorUnits } from "@/lib/money";
 import {
   monthSpendRowSchema,
-  parseRows,
   type CategoryColor,
   type MonthSpendRow,
 } from "@/lib/schema";
 import { requireCompleteSettings } from "@/lib/settings";
-import { currentMonthRange, type PlainDate } from "@/lib/time";
+import { type PlainDate } from "@/lib/time";
 
 /**
  * Where this month's money went, worked out from the rows themselves.
@@ -53,24 +52,6 @@ export type MonthBreakdown = {
  * finds.
  */
 const byName = new Intl.Collator("en-US");
-
-/**
- * How many rows this screen will hold in memory at once.
- *
- * A bound on memory, and deliberately no longer the safety check. An earlier
- * draft of spec 0005 guarded completeness by asking for one row more than a cap
- * and throwing when that many arrived. A cross check showed that guard defeats
- * itself: PostgREST carries its own server side row limit, and if that limit
- * sits below this number the server truncates first, the extra row never
- * arrives, and the check stays silent while the total is short. A guard that
- * fails exactly when it is needed is worse than no guard, because it invites
- * trust.
- *
- * Correctness therefore rests on the exact count comparison below, which holds
- * whatever the server's own limit turns out to be. This number only stops one
- * absurd month from being read into memory in full.
- */
-const MAX_MONTH_ROWS = 5000;
 
 /**
  * Turn a month of rows into a total and a ranked split, with no side effects.
@@ -141,54 +122,20 @@ export function summariseMonth(
  */
 export async function loadMonthBreakdown(): Promise<MonthBreakdown> {
   const settings = await requireCompleteSettings();
-  const { start, endExclusive } = currentMonthRange(
-    new Date(),
-    settings.timezone,
-  );
-
-  const insforge = await createInsforgeServer();
+  const window = currentSpendMonth(new Date(), settings.timezone);
 
   // `categories` embeds as a single object across the three column composite
-  // key, proved against the backend before the schema was written. Income is
-  // excluded here rather than after the fact, so a row that should not count
-  // never reaches the sum (AC-6). Hidden categories are deliberately not
-  // filtered: money you spent still counts, whatever you did with the label
-  // afterwards (AC-7).
-  const result = await insforge.database
-    .from("transactions")
-    .select("amount_minor,categories(id,name,color)", { count: "exact" })
-    .eq("direction", "spend")
-    .gte("occurred_on", start)
-    .lt("occurred_on", endExclusive)
-    .limit(MAX_MONTH_ROWS);
+  // key, proved against the backend before this schema was written. The window,
+  // the spend filter, the cap, and the completeness guard all come from
+  // `lib/month.ts` rather than being written here, so this screen and the
+  // transactions list cannot drift into reporting two totals for one month
+  // (spec 0007).
+  const rows = await readSpendMonth<MonthSpendRow>({
+    what: "This month's spending",
+    select: "amount_minor,categories(id,name,color)",
+    schema: monthSpendRowSchema,
+    window,
+  });
 
-  // Rethrown, never swallowed. The route has an error boundary and this screen
-  // has no honest degraded form: there is no partial total worth showing.
-  if (result.error) {
-    throw new Error(
-      `Could not read this month's spending: ${JSON.stringify(result.error)}`,
-    );
-  }
-
-  const rows = parseRows(monthSpendRowSchema, "transactions", result.data);
-
-  // The completeness check (AC-9). It compares the rows received against the
-  // count Postgres reports for this same filter, not against the length of the
-  // array it just measured, which would compare a number with itself. That is
-  // the whole point: a server side row limit can shorten `data` without any
-  // error, and only a number the database produced independently can catch it.
-  const reported = result.count;
-  if (typeof reported !== "number") {
-    throw new Error(
-      "This month's spending came back without a row count, so there is no way to prove nothing was dropped. Refusing to show a total that might be short.",
-    );
-  }
-  if (rows.length !== reported) {
-    throw new Error(
-      `This month's spending came back short: ${rows.length} rows for a reported count of ${reported}. ` +
-        `Refusing to show a total that is missing entries. If the count is above ${MAX_MONTH_ROWS}, that limit is what truncated it.`,
-    );
-  }
-
-  return summariseMonth(start, rows);
+  return summariseMonth(window.month, rows);
 }

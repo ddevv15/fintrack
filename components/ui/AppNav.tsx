@@ -29,10 +29,14 @@ export type NavItem = {
   label: string;
   icon: keyof typeof icons;
   /**
-   * Set false for a tab whose route does not exist yet. next/link prefetches
-   * every visible link, so a tab pointing at an unbuilt route logs a 404 on
-   * every page load, which buries the console errors that actually matter.
-   * Remove it once the route lands.
+   * Set false for a tab whose route this render cannot actually reach.
+   * next/link prefetches every visible link, so a tab pointing somewhere that
+   * answers with a 404 or a redirect logs one on every page load, which buries
+   * the console errors that actually matter.
+   *
+   * Every real app tab is now built, so the only caller that still needs this
+   * is the component gallery, which renders the nav signed out and would
+   * otherwise prefetch three routes that all bounce to sign in.
    */
   prefetch?: boolean;
 };

@@ -243,6 +243,37 @@ export const monthSpendRowSchema = z.object({
 });
 export type MonthSpendRow = z.infer<typeof monthSpendRowSchema>;
 
+/**
+ * One row of the month transactions list, with its category embedded.
+ *
+ * Deliberately a second schema rather than a widening of
+ * `monthSpendRowSchema`. That one carries an amount and a category and nothing
+ * else, because the breakdown needs nothing else, and asking it to grow four
+ * columns so a different screen can reuse it would be the schema driving the
+ * query instead of the other way round (spec 0007).
+ *
+ * `categories` is a single object rather than an array for the same reason it
+ * is there: the foreign key involved is the three column composite from spec
+ * 0002, and PostgREST resolves it to an object because
+ * `categories_owner_id_kind_key` makes the referenced columns unique.
+ *
+ * `direction`, `user_id`, and `merchant` are absent because this feature never
+ * reads them. Ownership is row level security's answer, not a column this code
+ * inspects, and the query filters `direction` rather than reporting it.
+ */
+export const monthTransactionRowSchema = z.object({
+  id: z.uuid(),
+  amount_minor: minorUnitsSchema,
+  occurred_on: plainDateSchema,
+  note: nullableToUndefined(z.string().max(500)),
+  categories: z.object({
+    id: z.uuid(),
+    name: z.string().min(1).max(60),
+    color: categoryColorSchema,
+  }),
+});
+export type MonthTransactionRow = z.infer<typeof monthTransactionRowSchema>;
+
 /** The calendar day type, re-exported so callers need one import for a row. */
 export type { PlainDate };
 

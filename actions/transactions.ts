@@ -212,8 +212,10 @@ export async function logSpend(
     Array.isArray(result.data) ? result.data[0] : result.data,
   );
 
-  // The breakdown totals this month from these rows, so a new spend has to
-  // invalidate it or the two screens disagree until something else reloads.
+  // Both screens total this month from these rows, so a new spend has to
+  // invalidate both or they disagree until something else reloads. The
+  // transactions list was added by spec 0007, AC-21.
+  revalidatePath("/transactions");
   revalidatePath("/breakdown");
 
   return {
