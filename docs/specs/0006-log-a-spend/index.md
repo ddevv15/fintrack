@@ -1,7 +1,7 @@
 # 0006. Log a spend
 
 **Date**: 2026-08-26
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
@@ -31,7 +31,7 @@ The screen you use more than any other: an amount, a category, a date, and an op
 - **AC-11**: While a save is in flight the submit control is disabled, so a second click during that window cannot produce a second row.
 - **AC-12**: When the account has no category with `kind = 'spend'` and `is_hidden = false`, the screen shows `You have no spend categories to log against. Unhide one, or add a new one, then come back.` instead of a form that cannot be completed.
 - **AC-13**: No module other than `lib/money.ts` converts between typed text and minor units, and the literal `100` appears nowhere in the conversion. This is checked, not merely asserted: a test scans `lib/` and `components/` and fails on a multiplication or division of an amount outside `lib/money.ts`.
-- **AC-14**: `logSpend` narrows the profile itself with `requireCompleteSettings()` before it reads a currency or a timezone. A server action is its own entry point and the `(app)` layout does not run for it, so the layout's completeness redirect protects the render only. A save attempted with an incomplete profile is refused by the action, and the database trigger remains as the second line.
+- **AC-14**: `logSpend` narrows the profile itself, with `getSettings()`, before it reads a currency or a timezone, and returns a `FormState` when the profile is incomplete. It must NOT use `requireCompleteSettings()`: that throws, and a throw inside an action escapes to the route error boundary, which replaces the page, loses everything typed, and shows a message written for whoever maintains the code. A server action is its own entry point and the `(app)` layout does not run for it, so the layout's completeness redirect protects the render only. A save attempted with an incomplete profile is refused by the action in plain words, and the database trigger remains as the second line.
 
 ## Decision
 
@@ -105,7 +105,7 @@ Server actions and one read helper, running in process. No HTTP endpoint is adde
 | render the form | the maximum date the field allows | the same value as the start date, so the control and the server agree on one definition of today |
 | render the form | the category options | `listSpendCategories()`, which is `kind = 'spend'` and `is_hidden = false` ordered by name, scoped by row level security |
 | render the form | whether to show the form or the empty state | the length of that same category list, taken at render. No second query |
-| `logSpend` | the currency, decimals, and timezone it works from | `requireCompleteSettings()`, called by the action itself. Not inherited from the layout, which does not run for an action, and never taken from the submitted form |
+| `logSpend` | the currency, decimals, and timezone it works from | `getSettings()`, called by the action itself and narrowed on `isComplete`. Not inherited from the layout, which does not run for an action, and never taken from the submitted form |
 | `logSpend` | `amount_minor` | `parseAmount(amount, decimals)` where `decimals` comes from that call, never from the browser |
 | `logSpend` | `occurred_on` | the submitted `occurredOn`, validated as a plain date and compared against `today(new Date(), timezone)` computed on the server |
 | `logSpend` | `direction` | the constant `'spend'`. This feature never writes income; feature 14 owns that |
@@ -131,9 +131,9 @@ Server actions and one read helper, running in process. No HTTP endpoint is adde
 
 Reads and writes are the signed in person's own rows only, enforced by row level security keyed to `auth.uid()`, not by an application filter. The `/` route sits inside `app/(app)/layout.tsx`, which already refuses an unauthenticated request twice over: `proxy.ts` checks the session cookie, then `requireUser()` asks the backend, so a forged token fails at the second gate.
 
-That gate protects the render, and only the render. A server action is its own entry point reached by a POST, so `app/(app)/layout.tsx` does not run for `logSpend` and neither does its completeness redirect. The action therefore repeats both checks for itself, `requireUser()` by way of `requireCompleteSettings()`, which is the same belt and braces reasoning the layout already applies to the proxy (AC-14).
+That gate protects the render, and only the render. A server action is its own entry point reached by a POST, so `app/(app)/layout.tsx` does not run for `logSpend` and neither does its completeness redirect. The action therefore repeats the check for itself, with `getSettings()` and a narrowing on `isComplete`, which is the same belt and braces reasoning the layout already applies to the proxy (AC-14).
 
-The one new write path is `logSpend`, guarded five deep: the profile narrowed by `requireCompleteSettings()`, Zod on the shape of every submitted field, `parseAmount` on the amount specifically, the composite foreign key on the category being yours and of the right kind, and the `amount_minor > 0` check. The `user_id` is never accepted from the browser at all.
+The one new write path is `logSpend`, guarded five deep: the profile narrowed by `getSettings()`, Zod on the shape of every submitted field, `parseAmount` on the amount specifically, the composite foreign key on the category being yours and of the right kind, and the `amount_minor > 0` check. The `user_id` is never accepted from the browser at all.
 
 No rate limiting is added. This path is behind sign in for one person, and an attacker holding a valid session can only write rows they already own, so a limit would add a failure mode to the most used screen in exchange for a threat this app does not face. Arcjet stays on the unauthenticated auth surface where feature 5 put it.
 
@@ -175,7 +175,7 @@ The project builds by Skateboard, the thinnest usable whole first, then grown. T
 3. Add the repository scan test that fails on a money conversion outside `lib/money.ts`, satisfies **AC-13**
 4. Add `listSpendCategories()` in `lib/categories.ts`, filtered and ordered as the value sourcing table states, satisfies **AC-7**, **AC-12**
 5. Add the `logSpend` Zod schema to `lib/schema.ts`: amount as raw text, category id as a uuid, occurred on as a plain date, note trimmed with blank omitted, satisfies **AC-4**, **AC-9**
-6. Add `actions/transactions.ts` with `logSpend`, opening with `requireCompleteSettings()` for its own currency, decimals and timezone, then parsing, checking the date against today, inserting, and revalidating `/breakdown` so the month figures reflect the new row, satisfies **AC-1**, **AC-5**, **AC-6**, **AC-9**, **AC-14**
+6. Add `actions/transactions.ts` with `logSpend`, opening with `getSettings()` narrowed on `isComplete` for its own currency, decimals and timezone, then parsing, checking the date against today, inserting, and revalidating `/breakdown` so the month figures reflect the new row, satisfies **AC-1**, **AC-5**, **AC-6**, **AC-9**, **AC-14**
 7. Build `components/transactions/LogSpendForm.tsx` on the existing primitives, Field with AmountInput, Select, a native date input, and a note input, wired with `useActionState` and the pending flag on the submit control, satisfies **AC-1**, **AC-11**
 8. Replace the placeholder body of `app/(app)/page.tsx` with a heading and the form, or the AC-12 empty state when the category list is empty, satisfies **AC-1**, **AC-12**
 9. Add the confirmation: extend the `ok` variant of `FormState` in `lib/forms.ts` with an optional message, render it in a `role="status"` region, clear the form, and return focus to the amount field, satisfies **AC-8**

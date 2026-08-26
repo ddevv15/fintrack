@@ -16,7 +16,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 3 | Data model | Foundation | done |
 | 4 | Design system and UI foundation | Foundation | done |
 | 5 | Sign in and your account | Release 1 | done |
-| 6 | Log a spend | Release 1 | in-progress |
+| 6 | Log a spend | Release 1 | done |
 | 7 | This month's transactions | Release 1 | planned |
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | planned |
@@ -105,7 +105,8 @@ The screen you will use more than any other: amount, date, category, optional no
   - [x] The save path: the spend category read, the Zod schema, and the `logSpend` action narrowing the profile itself rather than trusting the layout (AC-1, AC-6, AC-7, AC-9, AC-14)
   - [x] The screen: the form on the existing primitives, the Log tab replacing its placeholder, and the submit control disabled while a save is in flight (AC-1, AC-11, AC-12)
   - [x] The states that make it trustworthy: the confirmation naming what was actually stored, the database refusals in plain words, and the accessibility pass (AC-8, AC-10, AC-12)
-- [ ] Verify it: `/check verify log a spend`
+- [x] Verify it: `/check verify log a spend`
+_All fourteen acceptance criteria pass. Verification found one defect and it was fixed: the action guarded the profile with a function that throws, so an incomplete profile produced an internal error page instead of a message, and lost what you had typed. Nothing was ever written, which is why no test had caught it. The screen reader listen through is owed, as on every earlier feature, and is tracked in [accessibility-pass.md](../accessibility-pass.md). Step by step detail in the spec's [verify.md](../specs/0006-log-a-spend/verify.md)._
 
 ### 7. This month's transactions
 A plain list of what you logged this month, so you can spot a mistake and fix it.
