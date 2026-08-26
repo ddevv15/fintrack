@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { env } from "@/lib/env";
 
@@ -18,27 +18,41 @@ import { env } from "@/lib/env";
  *
  * Next.js refuses to let a Server Component render mutate cookies: only a
  * server function or a route handler may set or delete one. So the list page
- * cannot clear the cookie it just read, and "read and clear on render" has to
- * be built from two halves.
+ * cannot clear the cookie it just read, and "read and clear on first render"
+ * has to be built from two halves that meet in `proxy.ts`.
  *
- * The first half is that a server action's `redirect()` does not send the
- * browser away and wait. Next renders the redirect target inside the same POST
- * and ships its payload with the response, so the list renders in the request
- * that ran the action and reads the cookie straight out of the request scoped
- * store `setFlash()` just wrote to. The message shows.
+ * The proxy runs before any Server Component, on a request that can still be
+ * changed and a response that can still carry headers. When a request to the
+ * list arrives holding a flash, it lifts the message onto a request header the
+ * page reads, and deletes the cookie on the way out. One request, read and
+ * cleared, and a reload afterwards finds nothing.
  *
- * The second half is the copy the browser kept. `proxy.ts` strips it off the
- * next request that arrives carrying it, from the forwarded request so the page
- * cannot see it and from the response so the browser drops it. By then it has
- * already been shown, so a reload, a bookmark, or the back button finds
- * nothing. The one time cost of this design is that with JavaScript turned off
- * the browser follows the redirect as a fresh request and the proxy consumes
- * the flash before the list renders: the edit still saves correctly, and only
- * the confirmation is missed.
+ * The message travels the last step as a header rather than as the cookie
+ * itself, and that is not a detour. Next merges any cookie the proxy sets into
+ * what the page sees, so deleting the cookie in the proxy would also blank it
+ * for the very render that was meant to read it. A header is untouched by that
+ * merge.
+ *
+ * One thing this rules out, and it is worth knowing before somebody puts it
+ * back: the action cannot use `redirect()`. Next renders a redirect target
+ * inside the POST that ran the action and ships its payload with the response,
+ * so the list would render in a request that never carried the cookie and the
+ * proxy would never see it. The message would be set, stored, and never shown.
+ * The edit form navigates itself instead, which makes the arrival at the list a
+ * real request that the proxy can act on. This was measured rather than
+ * assumed: with `redirect()` the confirmation was silently always empty.
  */
 
-/** The cookie the message travels in. Read by `proxy.ts` as well. */
+/** The cookie the message travels in, from the action to the proxy. */
 export const FLASH_COOKIE = "fintrack_flash";
+
+/**
+ * The request header the proxy hands the message on in, for the last step.
+ *
+ * The value is URL encoded, because a header must be latin-1 and a category
+ * name may be anything at all.
+ */
+export const FLASH_HEADER = "x-fintrack-flash";
 
 /**
  * A backstop lifetime, in seconds, for a flash nothing ever consumed.
@@ -52,8 +66,8 @@ const FLASH_MAX_AGE_SECONDS = 60;
 /**
  * Set the confirmation the next render of `/transactions` will show.
  *
- * Call this from a server action, immediately before `redirect()`. It is the
- * only writer.
+ * Call this from a server action just before it reports success. It is the only
+ * writer.
  *
  * `httpOnly` because nothing in the browser has any business reading it, and
  * `sameSite: "lax"` so it survives the app's own navigation and travels with
@@ -76,11 +90,13 @@ export async function setFlash(message: string): Promise<void> {
 /**
  * Read the confirmation waiting for this render, if there is one.
  *
- * Safe to call from a Server Component: it only reads. The clearing is
- * `proxy.ts`'s half, for the reason set out at the top of this file.
+ * Reads the header the proxy put there, not the cookie, for the reason set out
+ * at the top of this file. Safe from a Server Component: it only reads, and the
+ * clearing already happened on the response this render is part of.
  */
 export async function readFlash(): Promise<string | undefined> {
-  const store = await cookies();
-  const value = store.get(FLASH_COOKIE)?.value;
-  return value === "" ? undefined : value;
+  const value = (await headers()).get(FLASH_HEADER);
+  if (!value) return undefined;
+
+  return decodeURIComponent(value);
 }

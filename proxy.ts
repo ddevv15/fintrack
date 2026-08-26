@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@insforge/sdk/ssr/middleware";
 
-import { FLASH_COOKIE } from "@/lib/flash";
+import { FLASH_COOKIE, FLASH_HEADER } from "@/lib/flash";
 
 /**
  * Next.js 16 renamed middleware to proxy. This runs before Server Components
@@ -58,39 +58,43 @@ function isPublic(pathname: string): boolean {
 }
 
 /**
- * Consume a confirmation the browser is still carrying.
+ * Hand a waiting confirmation to the list, and clear it in the same breath.
  *
  * The other half of the single use flash in `lib/flash.ts`, and worth reading
- * with that file open. A flash arriving on an incoming request has already been
- * shown: the action that set it rendered `/transactions` inside the same POST
- * and read the message out of the request scoped cookie store. What is left is
- * the browser's copy, which a reload would otherwise show a second time.
+ * with that file open. The proxy is the only place in a Next.js request that
+ * can both read a cookie and clear it while a Server Component still gets to
+ * see the value, which is exactly what "shown once" needs.
  *
- * It is stripped in both directions on purpose. Removing it from the request
- * stops this render showing it again; deleting it on the response stops the
- * next one. Doing only one of the two leaves the message live for exactly one
- * more page view (spec 0007, AC-13).
+ * The message moves onto a request header rather than staying in the cookie,
+ * because Next merges a cookie the proxy sets into what the page reads, so
+ * deleting it here would blank it for the very render meant to show it.
  *
- * The order below is not cosmetic. `NextResponse.next({ request })` copies the
- * request headers into the forwarded request the moment it is called, so a
- * cookie deleted afterwards would still reach the page. The request side has to
- * be cleared first, and the response is built from the already stripped
- * request.
+ * Two narrow conditions, both there to stop the message being thrown away
+ * before anybody sees it. Only `/transactions` renders it, so no other route
+ * gets to consume it in passing. And a prefetch is skipped, because a prefetch
+ * is the browser looking ahead rather than a person arriving, and letting one
+ * clear the flash would delete a confirmation that was never displayed.
  */
-function consumeFlash(request: NextRequest): NextResponse {
-  const carried = request.cookies.has(FLASH_COOKIE);
+function carryFlash(request: NextRequest): NextResponse {
+  const waiting =
+    request.nextUrl.pathname === "/transactions" &&
+    !request.headers.get("next-router-prefetch")
+      ? request.cookies.get(FLASH_COOKIE)?.value
+      : undefined;
 
-  if (carried) request.cookies.delete(FLASH_COOKIE);
+  if (!waiting) return NextResponse.next({ request });
 
-  const response = NextResponse.next({ request });
+  const forwarded = new Headers(request.headers);
+  forwarded.set(FLASH_HEADER, encodeURIComponent(waiting));
 
-  if (carried) response.cookies.delete(FLASH_COOKIE);
+  const response = NextResponse.next({ request: { headers: forwarded } });
+  response.cookies.delete(FLASH_COOKIE);
 
   return response;
 }
 
 export async function proxy(request: NextRequest) {
-  const response = consumeFlash(request);
+  const response = carryFlash(request);
 
   // Returns an access token when there is a usable session, having refreshed it
   // if it was expiring. It returns null both for no session at all and for one

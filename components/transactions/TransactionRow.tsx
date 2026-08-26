@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { DeleteTransaction } from "@/components/transactions/DeleteTransaction";
+import { rowActionClasses } from "@/components/transactions/rowActionClasses";
 import { Amount } from "@/components/ui/Amount";
 import { CategoryChip } from "@/components/ui/CategoryChip";
 import { DateDisplay } from "@/components/ui/DateDisplay";
@@ -22,14 +24,6 @@ import { formatPlainDate } from "@/lib/time";
  * it deletes the entry, and a destructive action should never be a mis-tap away
  * from the thing you meant to do.
  */
-
-/**
- * The shared look for the two row controls, so Edit and Delete are the same
- * size and shape despite one being a link and the other a button. Matches the
- * `sm` Button: 44px on a phone, tighter once there is a pointer.
- */
-export const rowActionClasses =
-  "focus-ring inline-flex h-11 items-center justify-center rounded-sm border border-border-strong bg-surface px-3 text-sm font-medium text-fg hover:border-fg-subtle md:h-9";
 
 /**
  * Name one entry the way it reads on screen: "12.50 Groceries, Aug 19".
@@ -76,13 +70,17 @@ export function TransactionRow({ transaction, currency }: TransactionRowProps) {
         />
       }
       actions={
-        <Link
-          href={`/transactions/${id}/edit`}
-          aria-label={`Edit ${described}`}
-          className={rowActionClasses}
-        >
-          Edit
-        </Link>
+        <>
+          <Link
+            href={`/transactions/${id}/edit`}
+            aria-label={`Edit ${described}`}
+            className={rowActionClasses}
+          >
+            Edit
+          </Link>
+
+          <DeleteTransaction transactionId={id} label={described} />
+        </>
       }
     />
   );

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { setFlash } from "@/lib/flash";
@@ -201,7 +200,7 @@ function describeDatabaseRefusal(
 
 /** Name a stored row the way the person will read it back. */
 function describeStored(row: MonthTransactionRow, currency: string): string {
-  return `${formatAmount(row.amount_minor, currency)} to ${row.categories.name} on ${formatPlainDate(row.occurred_on)}`;
+  return `${formatAmount(row.amount_minor, currency)} for ${row.categories.name} on ${formatPlainDate(row.occurred_on)}`;
 }
 
 /**
@@ -295,10 +294,19 @@ export async function logSpend(
  * reasons. Four columns move: the amount, the category, the day, and the note.
  * `user_id`, `direction`, `merchant`, `created_at`, and `id` are never touched.
  *
- * This one does not hand a `FormState` back on success, because on success
- * there is no form left to show it in: it sets the single use flash and
- * redirects to the list, which reads the message and announces it (AC-13). The
- * `redirect()` works by throwing, so nothing may be written after it.
+ * On success it puts the confirmation in the single use flash and reports `ok`.
+ * The form is what navigates to the list, which reads the message out of the
+ * flash and announces it (AC-13).
+ *
+ * It deliberately does not call `redirect()`, and the reason is measured rather
+ * than stylistic: Next renders a redirect target inside the POST that ran the
+ * action, so the list would render in a request that never carried the cookie,
+ * the proxy would never get to hand it over, and the confirmation would be
+ * silently empty every time. `lib/flash.ts` sets this out in full.
+ *
+ * `message` is returned as well as flashed, so that a browser with JavaScript
+ * turned off, which stays on this screen because nothing navigates it, still
+ * gets told the save worked instead of being shown an unchanged form.
  */
 export async function updateTransaction(
   _previous: FormState,
@@ -388,14 +396,92 @@ export async function updateTransaction(
     saved.occurred_on < window.start ||
     saved.occurred_on >= window.endExclusive;
 
-  await setFlash(
-    movedAway
-      ? `Saved ${stored}. That is in ${formatMonth(saved.occurred_on)}, so it is no longer on this month's list.`
-      : `Saved ${stored}.`,
-  );
+  const message = movedAway
+    ? `Saved ${stored}. That is in ${formatMonth(saved.occurred_on)}, so it is no longer on this month's list.`
+    : `Saved ${stored}.`;
+
+  await setFlash(message);
 
   revalidatePath("/transactions");
   revalidatePath("/breakdown");
 
-  redirect("/transactions");
+  return { status: "ok", message };
+}
+
+/**
+ * Remove one entry for good, and say what went.
+ *
+ * There is no soft delete and no archived state: spec 0007 chose a real delete
+ * so every existing query stays correct as written, including
+ * `loadMonthBreakdown()`, which needs no change at all as a result.
+ *
+ * This one returns a `FormState` rather than redirecting, because it is already
+ * on the list it affects. The list's live region announces the message (AC-24),
+ * and focus lands there once the row it was standing on is gone (AC-17).
+ *
+ * It needs the profile for the same reason the others do, and for one more
+ * beside: the confirmation names an amount, and an amount cannot be rendered
+ * without knowing the currency.
+ */
+export async function deleteTransaction(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const profile = await completeProfileOrRefusal("removing an entry");
+  if (!profile.ok) return profile.state;
+  const { settings } = profile;
+
+  const parsed = z
+    .uuid("That entry could not be identified.")
+    .safeParse(String(formData.get("id") ?? ""));
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0].message };
+  }
+
+  const insforge = await createInsforgeServer();
+
+  // The returned row is what makes the confirmation truthful: it names what was
+  // actually removed rather than what the screen believed was there. `user_id`
+  // is absent, as always; row level security is what decides this can only
+  // reach your own rows.
+  const result = await insforge.database
+    .from("transactions")
+    .delete()
+    .eq("id", parsed.data)
+    .eq("direction", "spend")
+    .select("id,amount_minor,occurred_on,note,categories(id,name,color)");
+
+  if (result.error) {
+    const { message } = describeDatabaseRefusal(
+      result.error,
+      "delete that entry",
+    );
+    return { status: "error", message };
+  }
+
+  const removed = Array.isArray(result.data) ? result.data : [];
+
+  // Zero rows matched, so the entry had already been deleted somewhere else.
+  // Reporting a successful delete here would claim this action did something it
+  // did not (AC-19). The list is still revalidated, because it is showing a row
+  // that no longer exists and leaving it there is its own small lie.
+  if (removed.length === 0) {
+    revalidatePath("/transactions");
+    revalidatePath("/breakdown");
+
+    return {
+      status: "error",
+      message: "That entry was already gone, so nothing was deleted.",
+    };
+  }
+
+  const gone = parseRow(monthTransactionRowSchema, "transactions", removed[0]);
+
+  revalidatePath("/transactions");
+  revalidatePath("/breakdown");
+
+  return {
+    status: "ok",
+    message: `Deleted ${describeStored(gone, settings.currency)}.`,
+  };
 }

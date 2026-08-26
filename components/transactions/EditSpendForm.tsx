@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { updateTransaction } from "@/actions/transactions";
@@ -63,11 +64,32 @@ export function EditSpendForm({
   const [occurredOn, setOccurredOn] = useState(initialOccurredOn);
   const [note, setNote] = useState(initialNote);
 
-  // Nothing is cleared on success, unlike the log form: a successful save
-  // redirects to the list, so this form is gone before there is anything to
-  // reset. What matters here is only that a refusal keeps every typed value.
+  const router = useRouter();
+
+  /*
+   * The navigation happens here rather than in the action, and that is load
+   * bearing rather than a preference.
+   *
+   * A `redirect()` inside a server action does not send the browser away and
+   * wait: Next renders the destination inside the same POST and ships its
+   * payload back. The list would therefore render in a request that never
+   * carried the confirmation cookie, and the message would be set, stored, and
+   * never shown. Navigating from here makes arriving at the list a real
+   * request, which is what `proxy.ts` needs in order to hand the message over
+   * and clear it in one go. See `lib/flash.ts`.
+   *
+   * Nothing is cleared on success, unlike the log form, because this form is
+   * about to be navigated away from. What matters is only that a refusal keeps
+   * every typed value.
+   */
   const [state, action, pending] = useActionState<FormState, FormData>(
-    updateTransaction,
+    async (previous, formData) => {
+      const result = await updateTransaction(previous, formData);
+
+      if (result.status === "ok") router.push("/transactions");
+
+      return result;
+    },
     idleFormState,
   );
 
@@ -171,6 +193,21 @@ export function EditSpendForm({
           />
         )}
       </Field>
+
+      {/*
+        Only reached without JavaScript, where nothing navigates and the action
+        result lands back on this same screen. With JavaScript the push above
+        happens first, so this is replaced before it can be read. Rendering it
+        anyway is what stops a save with no JavaScript looking like a form that
+        did nothing at all.
+      */}
+      <p
+        role="status"
+        aria-live="polite"
+        className="text-fg text-sm font-medium empty:hidden"
+      >
+        {state.status === "ok" ? (state.message ?? "") : ""}
+      </p>
 
       <div className="flex flex-col gap-2">
         <SubmitButton pending={pending} pendingLabel="Saving...">
