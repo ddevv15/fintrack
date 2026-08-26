@@ -1,8 +1,14 @@
+import { z } from "zod";
+
+import { createInsforgeServer } from "@/lib/insforge-server";
 import { currentSpendMonth, readSpendMonth } from "@/lib/month";
 import type { MinorUnits } from "@/lib/money";
 import {
+  editTransactionRowSchema,
   monthTransactionRowSchema,
+  parseRow,
   type CategoryColor,
+  type EditTransactionRow,
   type MonthTransactionRow,
 } from "@/lib/schema";
 import { requireCompleteSettings } from "@/lib/settings";
@@ -107,4 +113,54 @@ export async function loadMonthTransactions(): Promise<MonthTransactions> {
   });
 
   return summariseTransactions(window.month, rows);
+}
+
+/**
+ * Read one entry to put in the edit form, or say there is no such entry.
+ *
+ * `undefined` covers three different situations on purpose, and keeping them
+ * indistinguishable is the security requirement rather than a simplification
+ * (AC-15). An id that never existed, an id belonging to somebody else, and an
+ * id that is not even a uuid all come back the same way and all render the same
+ * not found page. Row level security already makes the second one invisible to
+ * the query; the job here is to not reintroduce the difference by handling the
+ * three cases differently.
+ *
+ * A genuine read failure still throws, because that is a different thing again:
+ * "this entry is not yours" and "the database did not answer" must not both
+ * render as a missing entry.
+ */
+export async function loadTransactionForEdit(
+  id: string,
+): Promise<EditTransactionRow | undefined> {
+  // Checked before the query rather than after. PostgREST answers a malformed
+  // uuid with an error, not an empty result, so without this a typo in the URL
+  // would render the error boundary while a stranger's id rendered not found,
+  // and the difference between those two pages is itself a signal.
+  if (!z.uuid().safeParse(id).success) return undefined;
+
+  const insforge = await createInsforgeServer();
+
+  // `direction` is filtered, not read: this screen edits spending, and an
+  // income entry (feature 14) must not open in a form that would write it back
+  // as one. `user_id` is absent, as everywhere: ownership is row level
+  // security's answer.
+  const result = await insforge.database
+    .from("transactions")
+    .select(
+      "id,amount_minor,occurred_on,note,categories(id,name,color,is_hidden)",
+    )
+    .eq("id", id)
+    .eq("direction", "spend")
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(
+      `Could not read that entry: ${JSON.stringify(result.error)}`,
+    );
+  }
+
+  if (!result.data) return undefined;
+
+  return parseRow(editTransactionRowSchema, "transactions", result.data);
 }

@@ -274,6 +274,27 @@ export const monthTransactionRowSchema = z.object({
 });
 export type MonthTransactionRow = z.infer<typeof monthTransactionRowSchema>;
 
+/**
+ * The one entry the edit screen loads, with its category.
+ *
+ * Separate from `monthTransactionRowSchema` because it needs one column that
+ * screen does not: `is_hidden` on the category, which decides whether the
+ * picker has to admit a hidden option and label it (spec 0007, AC-12).
+ */
+export const editTransactionRowSchema = z.object({
+  id: z.uuid(),
+  amount_minor: minorUnitsSchema,
+  occurred_on: plainDateSchema,
+  note: nullableToUndefined(z.string().max(500)),
+  categories: z.object({
+    id: z.uuid(),
+    name: z.string().min(1).max(60),
+    color: categoryColorSchema,
+    is_hidden: z.boolean(),
+  }),
+});
+export type EditTransactionRow = z.infer<typeof editTransactionRowSchema>;
+
 /** The calendar day type, re-exported so callers need one import for a row. */
 export type { PlainDate };
 
