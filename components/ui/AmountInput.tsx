@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
 import { cn } from "@/lib/ui";
 
@@ -16,8 +16,12 @@ import { controlClasses } from "./Input";
  * technology because it is decoration beside the field. Name the currency in
  * the Field label or hint when it is not obvious from context.
  */
+// WithRef rather than WithoutRef, for the same reason Select is: React 19
+// passes ref as an ordinary prop, and LogSpendForm needs one to put focus back
+// here after a save so the next spend can be typed straight away (spec 0006,
+// AC-8).
 type AmountInputProps = Omit<
-  ComponentPropsWithoutRef<"input">,
+  ComponentPropsWithRef<"input">,
   "id" | "name" | "type" | "aria-describedby" | "aria-invalid"
 > &
   FieldControlProps & { currencySymbol: string };

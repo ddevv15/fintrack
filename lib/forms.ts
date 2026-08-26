@@ -16,7 +16,18 @@ export type FormState =
       message: string;
       fieldErrors?: Record<string, string>;
     }
-  | { status: "ok" };
+  | {
+      /**
+       * `message` is what actually landed, not what was typed, and it is
+       * optional because most forms have nothing worth saying beyond having
+       * worked. Log a spend does: spec 0006 answers "did it store what I meant"
+       * by naming the stored amount back, formatted from the saved integer, so
+       * the conversion is visible on every entry rather than invisible on all
+       * of them.
+       */
+      status: "ok";
+      message?: string;
+    };
 
 /** The starting value for a form that has not been submitted yet. */
 export const idleFormState: FormState = { status: "idle" };

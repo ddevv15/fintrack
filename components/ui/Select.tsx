@@ -37,6 +37,7 @@ export function Select({
   describedBy,
   className,
   defaultValue,
+  value,
   ...props
 }: SelectProps) {
   return (
@@ -44,7 +45,18 @@ export function Select({
       <select
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
-        defaultValue={defaultValue ?? (placeholder ? "" : undefined)}
+        value={value}
+        // The placeholder fallback applies only when this select is
+        // uncontrolled. Setting both `value` and `defaultValue` is a React
+        // error, and because the fallback fires on the mere presence of a
+        // placeholder, an unguarded version made a controlled select with a
+        // placeholder impossible to write. LogSpendForm needs exactly that:
+        // its fields are controlled so a refused save keeps what you typed.
+        defaultValue={
+          value === undefined
+            ? (defaultValue ?? (placeholder ? "" : undefined))
+            : undefined
+        }
         className={cn(controlClasses, "appearance-none pr-9", className)}
         {...props}
       >

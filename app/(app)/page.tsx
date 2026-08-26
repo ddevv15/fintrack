@@ -1,57 +1,64 @@
 import Link from "next/link";
 
-import { Card } from "@/components/ui/Card";
-import { getSettings } from "@/lib/settings";
+import { LogSpendForm } from "@/components/transactions/LogSpendForm";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { listSpendCategories } from "@/lib/categories";
+import { currencySymbol } from "@/lib/money";
+import { requireCompleteSettings } from "@/lib/settings";
+import { today } from "@/lib/time";
 
 /**
- * Home, for now.
+ * Home, and the screen you will use most: log a spend.
  *
- * Feature 6 replaces this with the screen you will actually use most: amount,
- * date, category, note, saved in seconds. Until then it proves the thing this
- * feature was for, which is that you are signed in, this account is yours, and
- * the app knows your currency and your zone without having guessed either.
+ * A Server Component that does the three things the form is not allowed to do,
+ * then hands down plain strings. It reads your currency and zone, works out
+ * what day it is where you are, and asks the database which categories you can
+ * file against. The form itself never learns your currency and never reads a
+ * clock (spec 0006, and the money and date rule in `components/ui/AGENTS.md`).
+ *
+ * `requireCompleteSettings()` is safe here because the layout above already
+ * redirected an incomplete profile to `/setup`. The action does not get to
+ * assume that, and calls it again for itself, because no layout runs for a
+ * server action.
  */
-export default async function HomePage() {
-  // Safe to reach for the complete branch: the layout above this redirected an
-  // incomplete profile to /setup before this component ever rendered.
-  const settings = await getSettings();
-  if (!settings.isComplete) return null;
+export default async function LogSpendPage() {
+  const settings = await requireCompleteSettings();
+
+  const categories = await listSpendCategories();
+  const currentDay = today(new Date(), settings.timezone);
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6">
       <div>
-        <h1 className="text-fg text-2xl font-semibold">
-          {settings.displayName ? `Hello, ${settings.displayName}` : "Hello"}
-        </h1>
+        <h1 className="text-fg text-2xl font-semibold">Log a spend</h1>
         <p className="text-fg-muted mt-1 text-sm">
-          Your account is ready. Logging a spend arrives with the next feature.
+          Amount, category, date. It takes a few seconds.
         </p>
       </div>
 
-      <Card className="flex flex-col gap-2">
-        <h2 className="text-fg text-sm font-medium">What this app knows</h2>
-        <dl className="text-sm">
-          <div className="flex justify-between py-1">
-            <dt className="text-fg-muted">Currency</dt>
-            <dd className="text-fg">{settings.currency}</dd>
-          </div>
-          <div className="flex justify-between py-1">
-            <dt className="text-fg-muted">Time zone</dt>
-            <dd className="text-fg">{settings.timezone}</dd>
-          </div>
-        </dl>
-        <p className="text-fg-subtle mt-1 text-sm">
-          Both came from you, not from this server. They decide how an amount
-          reads and where your month ends.
-        </p>
-      </Card>
-
-      <Link
-        href="/settings"
-        className="focus-ring text-fg-muted hover:text-fg self-start rounded-sm text-sm underline"
-      >
-        Your account
-      </Link>
+      {categories.length === 0 ? (
+        // Reachable once feature 9 can hide categories; a new account always
+        // has ten from the seed trigger. A select with nothing in it looks
+        // broken, and this says what happened instead (AC-12).
+        <EmptyState
+          title="You have no spend categories to log against."
+          body="Unhide one, or add a new one, then come back."
+          action={
+            <Link
+              href="/settings"
+              className="focus-ring text-fg-muted hover:text-fg rounded-sm text-sm underline"
+            >
+              Your account
+            </Link>
+          }
+        />
+      ) : (
+        <LogSpendForm
+          categories={categories}
+          currencySymbol={currencySymbol(settings.currency)}
+          today={currentDay}
+        />
+      )}
     </div>
   );
 }

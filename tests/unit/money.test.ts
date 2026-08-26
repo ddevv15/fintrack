@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { currencySymbol, formatAmount, percentShares } from "@/lib/money";
+import {
+  currencySymbol,
+  formatAmount,
+  parseAmount,
+  percentShares,
+} from "@/lib/money";
 
 /**
  * Locks rule 1 of spec 0001, as spec 0004 corrects it: amounts are whole minor
@@ -161,5 +166,125 @@ describe("percentShares", () => {
 
   it("refuses to split a total of nothing", () => {
     expect(() => percentShares([0, 0], 0)).toThrow(/total of zero/);
+  });
+});
+
+/**
+ * Locks the decision in spec 0006: a typed amount becomes minor units by
+ * string manipulation, and anything the currency cannot hold exactly is
+ * refused rather than quietly rounded.
+ *
+ * The exhaustive test below is the one that matters. It is not thoroughness
+ * for its own sake: the implementation this replaces would have passed a
+ * handful of hand picked cases and failed on 271 of these 2000.
+ */
+describe("parseAmount", () => {
+  it("reads an ordinary amount exactly", () => {
+    expect(parseAmount("12.50", 2)).toEqual({ ok: true, minor: 1250 });
+    expect(parseAmount("0.99", 2)).toEqual({ ok: true, minor: 99 });
+    expect(parseAmount("12", 2)).toEqual({ ok: true, minor: 1200 });
+  });
+
+  it("is exact where multiplying is not", () => {
+    // 8.29 * 100 is 828.9999999999999 in binary floating point. This is 829.
+    expect(parseAmount("8.29", 2)).toEqual({ ok: true, minor: 829 });
+    expect(parseAmount("0.29", 2)).toEqual({ ok: true, minor: 29 });
+    expect(parseAmount("0.07", 2)).toEqual({ ok: true, minor: 7 });
+  });
+
+  it("round trips every cent from 0.01 to 20.00 without drifting once", () => {
+    for (let expected = 1; expected <= 2000; expected++) {
+      const typed = (expected / 100).toFixed(2);
+      expect(parseAmount(typed, 2)).toEqual({ ok: true, minor: expected });
+    }
+  });
+
+  it("survives the round trip back through formatAmount", () => {
+    for (let expected = 1; expected <= 2000; expected++) {
+      const typed = (expected / 100).toFixed(2);
+      const parsed = parseAmount(typed, 2);
+      if (!parsed.ok) throw new Error(`${typed} was refused`);
+      expect(formatAmount(parsed.minor, "USD")).toBe(`$${typed}`);
+    }
+  });
+
+  it("accepts a leading dot and leading zeros", () => {
+    expect(parseAmount(".99", 2)).toEqual({ ok: true, minor: 99 });
+    expect(parseAmount(".5", 2)).toEqual({ ok: true, minor: 50 });
+    expect(parseAmount("007", 2)).toEqual({ ok: true, minor: 700 });
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(parseAmount("  12.50  ", 2)).toEqual({ ok: true, minor: 1250 });
+  });
+
+  it("uses the currency's own decimal count, not a hardcoded two", () => {
+    // Yen has no minor unit at all.
+    expect(parseAmount("500", 0)).toEqual({ ok: true, minor: 500 });
+    // The Kuwaiti dinar has three, and 1.005 is where rounding a float fails.
+    expect(parseAmount("1.005", 3)).toEqual({ ok: true, minor: 1005 });
+    expect(parseAmount("12.5", 3)).toEqual({ ok: true, minor: 12500 });
+  });
+
+  it("refuses more decimal places than the currency has, naming the limit", () => {
+    const dollars = parseAmount("12.567", 2);
+    expect(dollars.ok).toBe(false);
+    if (!dollars.ok) expect(dollars.reason).toContain("2 decimal places");
+
+    const yen = parseAmount("500.5", 0);
+    expect(yen.ok).toBe(false);
+    if (!yen.ok) expect(yen.reason).toContain("no decimal places");
+  });
+
+  it("counts digits typed rather than their value, so 500.00 is refused on yen", () => {
+    expect(parseAmount("500.00", 0).ok).toBe(false);
+  });
+
+  it("refuses every shape that is not digits with at most one dot", () => {
+    for (const typed of [
+      "1,234.50",
+      "$12",
+      "12,50",
+      "12.5.6",
+      "12 50",
+      "-5",
+      "abc",
+      "12.",
+      ".",
+      "",
+      "   ",
+      "1e3",
+      "Infinity",
+    ]) {
+      expect(parseAmount(typed, 2).ok, `${typed} should be refused`).toBe(
+        false,
+      );
+    }
+  });
+
+  it("refuses zero however it is typed", () => {
+    expect(parseAmount("0", 2).ok).toBe(false);
+    expect(parseAmount("0.00", 2).ok).toBe(false);
+    expect(parseAmount("000", 2).ok).toBe(false);
+    expect(parseAmount(".00", 2).ok).toBe(false);
+  });
+
+  it("refuses an amount past the exact integer range, before converting it", () => {
+    // 16 significant digits: Number() would return this without complaint and
+    // without being exact, which is why the check is on the digits.
+    expect(parseAmount("99999999999999.99", 2).ok).toBe(false);
+    // 15 is still fine, and is around 9 trillion dollars.
+    expect(parseAmount("9999999999999.99", 2)).toEqual({
+      ok: true,
+      minor: 999999999999999,
+    });
+  });
+
+  it("never returns a value formatAmount would refuse", () => {
+    for (const typed of ["0.01", "9999999999999.99", ".5", "007"]) {
+      const parsed = parseAmount(typed, 2);
+      if (!parsed.ok) throw new Error(`${typed} was refused`);
+      expect(() => formatAmount(parsed.minor, "USD")).not.toThrow();
+    }
   });
 });
