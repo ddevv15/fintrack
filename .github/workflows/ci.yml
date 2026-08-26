@@ -108,10 +108,24 @@ jobs:
       # The Playwright config builds and starts the app itself in CI, so this
       # also proves the production build compiles.
       - name: Run Playwright
-        # The accessibility check points axe at the design gallery, and that
-        # route 404s without this flag. An axe violation fails the run.
         env:
+          # The accessibility check points axe at the design gallery, and that
+          # route 404s without this flag. An axe violation fails the run.
           UI_GALLERY: "1"
+          # The signed in suites need a real backend and two real accounts.
+          # Without these the Playwright config leaves those projects out and
+          # says so loudly, and the public tests still run. With them, the
+          # signed in flows run too, which is most of what this app does.
+          #
+          # These were previously missing here entirely, so the signed in
+          # projects could not have worked in CI even where the secrets existed.
+          # An empty secret is an empty string, which the config treats as
+          # absent, so a fork with no access degrades rather than fails.
+          NEXT_PUBLIC_INSFORGE_URL: ${{ secrets.INSFORGE_URL }}
+          NEXT_PUBLIC_INSFORGE_ANON_KEY: ${{ secrets.INSFORGE_ANON_KEY }}
+          INSFORGE_TEST_EMAIL_A: ${{ secrets.INSFORGE_TEST_EMAIL_A }}
+          INSFORGE_TEST_EMAIL_B: ${{ secrets.INSFORGE_TEST_EMAIL_B }}
+          INSFORGE_TEST_PASSWORD: ${{ secrets.INSFORGE_TEST_PASSWORD }}
         run: npm run test:e2e
 
       - uses: actions/upload-artifact@v5
