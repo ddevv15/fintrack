@@ -136,6 +136,42 @@ export function parseAmount(text: string, decimals: number): ParsedAmount {
   return { ok: true, minor };
 }
 
+/**
+ * Render whole minor units as the plain text an amount field expects.
+ *
+ * `formatAmount()` cannot serve here: it produces "$12.50", and a currency
+ * glyph typed into a field that parses digits is a value the parser refuses.
+ * This produces "12.50", which `parseAmount()` reads straight back, so opening
+ * an entry and saving it unchanged stores exactly the integer it started with
+ * (spec 0007, AC-12).
+ *
+ * It splits the digit string rather than dividing, for the same reason
+ * `parseAmount()` joins one rather than multiplying. Dividing would be exact
+ * often enough to look fine and wrong often enough to matter, and the whole
+ * point of this round trip is that it is exact every time.
+ */
+export function formatAmountInput(
+  amount: MinorUnits,
+  currency: string = env().APP_CURRENCY,
+): string {
+  if (!Number.isSafeInteger(amount) || amount < 0) {
+    throw new Error(
+      `Money must be whole, non negative minor units, received ${amount}`,
+    );
+  }
+
+  const decimals = decimalsFor(currency);
+  if (decimals === 0) return String(amount);
+
+  // Padded so a value smaller than one major unit still has digits to take a
+  // fraction from: 5 minor units on a two decimal currency is "005", which
+  // splits into "0" and "05", giving "0.05".
+  const digits = String(amount).padStart(decimals + 1, "0");
+  const split = digits.length - decimals;
+
+  return `${digits.slice(0, split)}.${digits.slice(split)}`;
+}
+
 const formatters = new Map<string, Intl.NumberFormat>();
 
 function formatterFor(

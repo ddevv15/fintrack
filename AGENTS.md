@@ -36,9 +36,11 @@ Stored in `docs/specs/`. Format: `docs/specs/NNNN-title/index.md`. The feature s
 
 ## Rules
 
-- Money is integer cents everywhere. `lib/money.ts` is the only module that converts an amount for display; nothing else multiplies or divides one.
-- What today is, and where a month starts and ends, comes from `APP_TIMEZONE` on the server via `lib/time.ts`. Never the server clock, never the browser.
+- Money is integer minor units everywhere, the smallest unit the currency actually has, so a cent for a dollar and a whole yen for a yen. `lib/money.ts` is the only module that converts an amount, into a display string or back out of a form field; nothing else multiplies or divides one.
+- What today is, and where a month starts and ends, comes from the signed in person's own timezone, read through `getSettings()` and passed into `lib/time.ts` as a required argument. Never the server clock, never the browser, and no longer `APP_TIMEZONE`, which spec 0004 demoted to the suggestion the sign up form preselects.
+- One month, one read. Every screen that totals a month takes it from `lib/month.ts`: the window, the spend filter, the row cap, and the completeness check, all in one place. Two screens totalling the same month from two definitions can drift apart and disagree with nothing to say which is right, so `tests/unit/month-window.test.ts` fails if a loader starts writing its own.
 - Errors are explicit: return them and show them. Never fall back to a zero or a partial total; a wrong money figure shown confidently is worse than an honest error.
+- A message only the browser needs does not travel through the server. A confirmation shown after a navigation is handed over in the browser (`components/transactions/confirmation.ts`), because a server carried one is consumed by whichever request arrives first and a write always produces more than one.
 - Functions are pure by default, data is immutable, side effects sit at the edges. Prefer composition over classes; avoid `null` in favour of explicit `undefined` unions.
 - Strict TypeScript, no `any`. Named exports only, except Next.js pages, layouts, and route handlers, which must stay default exports.
 - Every table holding personal data has row level security on, keyed to the signed in user id. A table with no policy is a data leak, not a to do.

@@ -42,8 +42,21 @@ const PUBLIC_SCREENS = [
  * `/breakdown` is here for spec 0005 AC-13 as well: it is the screen that shows
  * what you spent and on what, so it leaking any part of itself to a request
  * with no session is the worst version of this failure.
+ *
+ * The two transactions routes joined for spec 0007 AC-15 and AC-20. The edit
+ * one carries a made up id, because a visitor with no session must be turned
+ * away before anything is looked up: bouncing a real id and rendering not found
+ * for a fake one would answer, to somebody with no account at all, whether an
+ * entry exists.
  */
-const PROTECTED_PATHS = ["/", "/settings", "/setup", "/breakdown"] as const;
+const PROTECTED_PATHS = [
+  "/",
+  "/settings",
+  "/setup",
+  "/breakdown",
+  "/transactions",
+  "/transactions/3fa85f64-5717-4562-b3fc-2c963f66afa6/edit",
+] as const;
 
 async function violationsOn(page: Page) {
   const results = await new AxeBuilder({ page })
