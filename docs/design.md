@@ -139,7 +139,7 @@ All in `components/ui/`. Every one renders on the server except `AppNav`.
 | Component | Props | States and notes |
 |---|---|---|
 | `AppShell` | `children`, `items?` | Bottom tab bar below `md`, left rail above. Owns the skip link and the one `<main>`. `items` is overridden only by the gallery |
-| `AppNav` | `items` | The three tabs, active one marked with `aria-current="page"`. The only client component: it needs `usePathname()`. Icons are named by string, since a server parent cannot pass a component across the boundary |
+| `AppNav` | `items` | The app tabs, active one marked with `aria-current="page"`. The only client component: it needs `usePathname()`. Icons are named by string, since a server parent cannot pass a component across the boundary |
 | `AuthLayout` | `title`, `children` | Centred card, app name above, no nav. Renders its own `<main>`, so it never nests inside `AppShell` |
 | `Button` | `variant`, `size`, plus every `<button>` attribute | `primary` (monochrome), `secondary` (bordered), `ghost`, `destructive` (the only coloured one). Sizes `sm` and `md`. Disabled dims to 50% rather than vanishing |
 | `Field` | `label`, `name`, `hint`, `error`, `children` | Owns the ids and the whole aria wiring. `children` is a function receiving `{id, name, invalid, describedBy}`, so a control cannot be rendered without them. The error paragraph is always in the DOM so its live region can announce |

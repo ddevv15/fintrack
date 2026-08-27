@@ -150,6 +150,28 @@ test.describe("where your money went", () => {
     );
   });
 
+  test("opens Profile and identifies the signed-in account", async ({
+    page,
+  }) => {
+    const email = process.env.INSFORGE_TEST_EMAIL_A;
+    if (!email) {
+      throw new Error(
+        "INSFORGE_TEST_EMAIL_A is required by the signed-in browser project.",
+      );
+    }
+
+    const profile = page.getByRole("link", { name: "Profile" });
+    await expect(profile).toBeVisible();
+    await profile.click();
+
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Your account" }),
+    ).toBeVisible();
+    await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+    await expect(profile).toHaveAttribute("aria-current", "page");
+  });
+
   test("passes axe at WCAG 2.2 AA in light (AC-12)", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
     expect(await violationsOn(page)).toEqual([]);
@@ -166,7 +188,7 @@ test.describe("where your money went", () => {
     page,
   }) => {
     // The rows are deliberately not tappable, so the only things tab should
-    // reach are the skip link and the three nav tabs. A decorative bar or a
+    // reach are the skip link and the four nav tabs. A decorative bar or a
     // category row picking up focus would be the failure.
     const reached: string[] = [];
 
@@ -182,7 +204,12 @@ test.describe("where your money went", () => {
     }
 
     expect(reached[0]).toContain("Skip to content");
-    expect(reached.slice(1, 4)).toEqual(["a:Log", "a:Month", "a:Breakdown"]);
+    expect(reached.slice(1, 5)).toEqual([
+      "a:Log",
+      "a:Month",
+      "a:Breakdown",
+      "a:Profile",
+    ]);
 
     // Everything the app puts in the tab order is a link. `nextjs-portal` is
     // the dev tools overlay, which exists only under `next dev` and not in the

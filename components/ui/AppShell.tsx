@@ -17,6 +17,7 @@ const navItems: readonly NavItem[] = [
   { href: "/", label: "Log", icon: "log" },
   { href: "/transactions", label: "Month", icon: "transactions" },
   { href: "/breakdown", label: "Breakdown", icon: "breakdown" },
+  { href: "/settings", label: "Profile", icon: "profile" },
 ];
 
 export function AppShell({
@@ -30,7 +31,7 @@ export function AppShell({
   return (
     <div className="flex min-h-full flex-col md:flex-row">
       {/* The nav comes first in the DOM so the desktop rail is read in the
-          order it is seen. On a phone that would put three tabs ahead of the
+          order it is seen. On a phone that would put every tab ahead of the
           content on every screen, which is what this link exists to skip. */}
       <a
         href="#main"

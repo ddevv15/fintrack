@@ -45,7 +45,7 @@ export default async function SettingsPage() {
     <div className="mx-auto flex w-full max-w-md flex-col gap-6">
       <div>
         <h1 className="text-fg text-2xl font-semibold">Your account</h1>
-        <p className="text-fg-muted mt-1 text-sm">{user.email}</p>
+        <p className="text-fg-muted mt-1 text-sm">Signed in as {user.email}</p>
       </div>
 
       <Card>

@@ -1,13 +1,13 @@
 "use client";
 
-import { ChartPie, Plus, Receipt } from "lucide-react";
+import { ChartPie, Plus, Receipt, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/ui";
 
 /**
- * The three tabs.
+ * The app's primary navigation tabs.
  *
  * This is the only "use client" file in components/ui/, and the only reason is
  * usePathname: marking the active tab needs the current route, and nothing on
@@ -22,6 +22,7 @@ const icons = {
   log: Plus,
   transactions: Receipt,
   breakdown: ChartPie,
+  profile: UserRound,
 } as const;
 
 export type NavItem = {
@@ -36,7 +37,7 @@ export type NavItem = {
    *
    * Every real app tab is now built, so the only caller that still needs this
    * is the component gallery, which renders the nav signed out and would
-   * otherwise prefetch three routes that all bounce to sign in.
+   * otherwise prefetch protected routes that bounce to sign in.
    */
   prefetch?: boolean;
 };
