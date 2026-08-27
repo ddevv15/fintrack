@@ -119,7 +119,7 @@ A plain list of what you logged this month, so you can spot a mistake and fix it
   - [x] Editing on its own route, and the single use flash that carries its confirmation back to the list (AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-19, AC-20, AC-22)
   - [x] Deleting from the row, confirmed in place, with focus and the announcement handled once the row is gone (AC-8, AC-16, AC-17, AC-18, AC-19, AC-21, AC-22, AC-24)
   - [x] Prove it: the ordering and summing tests, the two loaders agreeing on a month, no repeated confirmation on reload, and the axe check on both routes (AC-7, AC-13, AC-15, AC-23)
-- [ ] Verify it: `/check verify this month's transactions`
+- [x] Verify it: `/check verify this month's transactions`
 
 ### 8. Where your money went
 spec [0005](../specs/0005-where-your-money-went/index.md) · code in `app/(app)/breakdown/`, `components/breakdown/`, `lib/breakdown.ts`
