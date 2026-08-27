@@ -15,6 +15,7 @@ month, and understanding which categories took the most.
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed_on-Vercel-000000?logo=vercel&logoColor=white)](https://fintrack-eight-sand.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
 
@@ -29,6 +30,14 @@ The current release is a complete, usable first slice. It includes private
 accounts, fast spend entry, a monthly transaction list, and a category
 breakdown. The project is developed in thin, shippable releases; the longer-term
 direction is documented in the [project scope](docs/scope/scope.md).
+
+## See FinTrack in action
+
+|                                                                             Log a spend                                                                              |                                                                       Review the month                                                                       |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|   [![FinTrack spend form with amount, category, date, and note fields](public/screenshots/log-spend.png)](https://fintrack-eight-sand.vercel.app/transactions/new)   | [![FinTrack monthly transaction list with an exact total](public/screenshots/monthly-transactions.png)](https://fintrack-eight-sand.vercel.app/transactions) |
+|                                                                     **Understand the breakdown**                                                                     |                                                                   **Manage your account**                                                                    |
+| [![FinTrack category breakdown with ranked totals and percentage bars](public/screenshots/spending-breakdown.png)](https://fintrack-eight-sand.vercel.app/breakdown) |  [![FinTrack profile showing the signed-in account and personal settings](public/screenshots/profile.png)](https://fintrack-eight-sand.vercel.app/settings)  |
 
 ## What you can do
 
@@ -253,10 +262,9 @@ issue, test fixture, screenshot, or commit.
 
 ## License
 
-This repository does not currently include a software license. The source is
-publicly available, but reuse and redistribution permissions have not yet been
-granted. A license should be selected and added before treating the project as
-open source in the legal sense.
+FinTrack is open-source software licensed under the [MIT License](LICENSE).
+You may use, copy, modify, merge, publish, distribute, sublicense, and sell
+copies of the software, provided the copyright and license notice are retained.
 
 ---
 
