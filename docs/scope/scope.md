@@ -109,7 +109,7 @@ The screen you will use more than any other: amount, date, category, optional no
 _All fourteen acceptance criteria pass. Verification found one defect and it was fixed: the action guarded the profile with a function that throws, so an incomplete profile produced an internal error page instead of a message, and lost what you had typed. Nothing was ever written, which is why no test had caught it. The screen reader listen through is owed, as on every earlier feature, and is tracked in [accessibility-pass.md](../accessibility-pass.md). Step by step detail in the spec's [verify.md](../specs/0006-log-a-spend/verify.md)._
 
 ### 7. This month's transactions
-spec [0007](../specs/0007-this-months-transactions/index.md) · code in `app/(app)/transactions/`, `components/transactions/`, `actions/transactions.ts`, `lib/month.ts`, `lib/transactions.ts`, `lib/flash.ts`, `proxy.ts`
+spec [0007](../specs/0007-this-months-transactions/index.md) · code in `app/(app)/transactions/`, `components/transactions/`, `actions/transactions.ts`, `lib/month.ts`, `lib/transactions.ts`
 A plain list of what you logged this month, so you can spot a mistake and fix it.
 **Done when:** the month's entries show newest first with a running total, you can edit or delete any one of them, and an empty month says so plainly instead of looking broken.
 - [x] Design it (spec): `/architect this month's transactions`

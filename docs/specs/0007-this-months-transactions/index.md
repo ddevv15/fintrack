@@ -30,7 +30,7 @@ A plain list of every spend you logged this month, newest first, with the month 
 - **AC-10**: The edited amount is turned into minor units by `parseAmount()` using the decimal count of the profile's currency, read on the server at the moment of the save. Nothing multiplies, divides, or rounds an amount anywhere in this feature.
 - **AC-11**: The edit refuses a date in the future, judged against today in the person's own timezone, with the same message the Log screen uses.
 - **AC-12**: The edit category picker offers the visible spend categories, and additionally the entry's own current category when that category is hidden, preselected. Opening an entry and saving it unchanged can never re file it. A hidden option is labelled as hidden, for example "Coffee (hidden)", and keeps its alphabetical position, so it is never mistaken for a live category.
-- **AC-13**: A saved edit returns to the list with a confirmation naming what was actually stored, formatted from the saved row read back from the database, not from the text that was typed. The message is carried across that navigation in a single use server side flash, read and cleared by the list on first render, so it is never in the URL and cannot be re shown by a reload, a bookmark, or the back button. A stale confirmation naming a figure is a wrong figure shown confidently, which rule 3 forbids.
+- **AC-13**: A saved edit returns to the list with a confirmation naming what was actually stored, formatted from the saved row read back from the database, not from the text that was typed. That confirmation appears every time, and exactly once: it is never in the URL, where a bookmark or a shared link would carry a money figure forever, and it never comes back on a reload, a bookmark, or the back and forward buttons. A stale confirmation naming a figure is a wrong figure shown confidently, which rule 3 forbids. How it crosses the navigation is a design choice, recorded below, not part of this criterion.
 - **AC-14**: When an edit moves the entry into a different month, it still saves, and the confirmation names the month it moved to, so an entry leaving the list is explained rather than appearing lost.
 - **AC-15**: An entry id that does not exist and an entry id belonging to someone else both render the standard not found page, and are indistinguishable from each other.
 - **AC-16**: Delete asks for confirmation in the row before anything is removed, and the confirm names the entry's amount and category.
@@ -41,7 +41,7 @@ A plain list of every spend you logged this month, newest first, with the month 
 - **AC-21**: After any write, both `/transactions` and `/breakdown` show it. This includes `logSpend()`, which currently revalidates only `/breakdown` and must now revalidate both.
 - **AC-22**: Both write actions check profile completeness themselves rather than trusting the layout, because a server action is its own entry point that no layout runs for, and a failed check returns a message rather than throwing away what was typed.
 - **AC-23**: Both routes are reachable and operable by keyboard alone and read correctly to a screen reader, and both pass the `axe` check at WCAG 2.2 AA.
-- **AC-24**: The list carries one `role="status"` live region above it, and every outcome this screen produces is announced through it: the edit confirmation arriving from the flash, a successful delete, and an entry that was already gone. This is the same region pattern `LogSpendForm` already uses. Without it, the only report of a delete is a row silently vanishing, which is nothing at all to a screen reader.
+- **AC-24**: The list carries one `role="status"` live region above it, and every outcome this screen produces is announced through it: the edit confirmation arriving with the navigation, a successful delete, and an entry that was already gone. This is the same region pattern `LogSpendForm` already uses. Without it, the only report of a delete is a row silently vanishing, which is nothing at all to a screen reader.
 
 ## Decision
 
@@ -83,6 +83,31 @@ Two new Zod schemas are needed on the TypeScript side, because `monthSpendRowSch
 
 None, deliberately. An entry exists, may be amended, or is removed. There is no draft, no pending, and no archived state, so there is no state machine to hold and no lifecycle column to keep in step. Introducing one is what a soft delete would have done, and rationale.md explains why that was refused.
 
+**How the confirmation crosses the navigation**:
+
+The sentence is handed from the edit form to the list inside the browser, in
+`components/transactions/confirmation.ts`: the form leaves it there, then
+navigates, and the list takes it once as it mounts. Taking is destructive, which
+is what makes it single use, and the list also empties its own region on
+`popstate`, so a step through history cannot redisplay one still on screen.
+
+Two more obvious mechanisms are ruled out, and the second one was tried and
+measured before it was ruled out, so it is worth being explicit:
+
+- **A query parameter** puts a money figure in the URL, where a bookmark or a
+  shared link carries it forever and a reload replays it. Refused outright.
+- **A cookie the action sets and the server clears** cannot work in this
+  framework. A server action's `redirect()` renders its target inside the same
+  POST, before the action has returned, so the list never sees the cookie at
+  all; and navigating from the form instead produces two requests for
+  `/transactions`, one from `revalidatePath` and one from the navigation, either
+  of which consumes the cookie while only one of them is the response actually
+  displayed. Measured at five confirmations in ten. See rationale.md.
+
+The general shape of the rule: a message that only the browser needs should
+never travel through the server, because every request then becomes a possible
+consumer and there is more than one.
+
 **API surface**:
 
 There are no HTTP endpoints. The surface is two routes and two server actions, which is what the App Router gives and what keeps money on the server.
@@ -91,7 +116,7 @@ There are no HTTP endpoints. The surface is two routes and two server actions, w
 |---|---|---|---|---|---|
 | `/transactions` | Route, Server Component | none | `month`, `totalMinor`, ordered rows | Session, then row level security | Throws on a failed or unprovable read, caught by `app/error.tsx` |
 | `/transactions/[id]/edit` | Route, Server Component | `id: uuid` (path) | The prefilled form, plus the category options | Session, then row level security | `notFound()` for an unknown id and for another account's id, identically |
-| `updateTransaction` | Server action | `id: uuid` (req), `amount: string` (req), `categoryId: uuid` (req), `occurredOn: string` (req), `note: string` (opt) | On failure, `FormState` rendered in place. On success, sets the flash and redirects to `/transactions` | Session, row level security, plus its own profile completeness check | Field errors from the parse; a future date; `23503` category not yours or wrong kind; `23514` a value the column refuses; zero rows matched, reported as already gone |
+| `updateTransaction` | Server action | `id: uuid` (req), `amount: string` (req), `categoryId: uuid` (req), `occurredOn: string` (req), `note: string` (opt) | On failure, `FormState` rendered in place. On success, `FormState` `ok` carrying the confirmation, which the form hands to the list before navigating there | Session, row level security, plus its own profile completeness check | Field errors from the parse; a future date; `23503` category not yours or wrong kind; `23514` a value the column refuses; zero rows matched, reported as already gone |
 | `deleteTransaction` | Server action | `id: uuid` (req) | `FormState`, `ok` with a message naming what went. No navigation: it is already on the list | Session, row level security, plus its own profile completeness check | Zero rows matched, which reports "already gone" rather than success; `23503` never applies here |
 
 **Value sourcing**:
@@ -117,8 +142,8 @@ There are no HTTP endpoints. The surface is two routes and two server actions, w
 | `deleteTransaction` | The confirmation's amount and category | The row read back with `.select(...)` on the delete, so the message names what actually went |
 | `deleteTransaction` | Whether anything was deleted | The number of rows the delete returned, which is zero when the entry was already gone |
 | `updateTransaction` | Whether anything was updated | The number of rows the update returned, zero when the entry was removed between opening the form and saving |
-| `updateTransaction` | How the confirmation reaches the list across the redirect | A single use cookie set by the action, read and cleared by `/transactions` on first render. Never a query parameter, so money never enters the URL and no reload can replay it |
-| List | The announcement of any outcome | The one `role="status"` region above the list, fed by the flash on load and by the delete action's `FormState` thereafter |
+| Edit form | How the confirmation reaches the list across the navigation | Handed over inside the browser by `components/transactions/confirmation.ts`: the form leaves the sentence there and the list takes it, once, as it mounts. Never a query parameter and never a cookie, so money never enters the URL and no server request can consume it |
+| List | The announcement of any outcome | The one `role="status"` region above the list, fed by the handoff on mount and by the delete action's `FormState` thereafter, and emptied on any history navigation |
 | List | Where focus goes after a successful delete | The status message, made programmatically focusable, since the row that held focus no longer exists |
 | Row actions | The accessible name of Edit and Delete | Composed from the same row values already on screen: the formatted amount, the category name, and the formatted date |
 | Edit form | The hidden marker on a category option | `is_hidden` on the row already fetched for the union, rendered as a " (hidden)" suffix on the label |
@@ -128,7 +153,7 @@ There are no HTTP endpoints. The surface is two routes and two server actions, w
 
 - The rows on screen and the total above them come from one read. A total from a second query is the exact gap the completeness guard exists to close.
 - `/transactions` and `/breakdown` use an identical month window and an identical spend filter, and they get it from one shared definition both import rather than by writing the same thing twice. This is a build requirement, not a cleanup: two independently written copies drifting apart produces two different totals for one month with no error anywhere.
-- A confirmation naming a money figure is shown exactly once, and never survives into a reload or a bookmark.
+- A confirmation naming a money figure is shown exactly once, and never survives a reload, a bookmark, or a step through the browser's history.
 - No arithmetic on an amount happens outside `lib/money.ts`, in this feature or its components.
 - An amount shown back to you after a write is always read from the stored row, never echoed from the input.
 - `direction` stays `spend` and `user_id` is never named by application code.
@@ -166,9 +191,9 @@ Ordered by the project's Skateboard approach: the thinnest usable whole first, t
 1. [x] **The shared month window, then the read and its proof.** First extract the month window and the spend filter into one definition that both `lib/breakdown.ts` and the new loader import, so the two screens cannot drift apart. Do this before writing the second loader, not after: writing the copy first and extracting later is how the copy survives. Then `monthTransactionRowSchema` in `lib/schema.ts`, and `lib/transactions.ts` holding `loadMonthTransactions()`: that shared window, the row cap, the exact count completeness guard, and the total summed in one pass over the rows it returns. Pure summing split from the query so it is testable without a backend, as `summariseMonth()` is. Satisfies **AC-1**, **AC-2**, **AC-3**, **AC-5**, **AC-7**.
 2. [x] **The screen, and the one place it speaks from.** `app/(app)/transactions/page.tsx` as a Server Component, `components/transactions/TransactionRow.tsx` on the existing `ListRow`, `Amount`, `DateDisplay`, and `CategoryChip` primitives, the total above the list, and the `prefetch: false` flag dropped from the transactions tab in `AppShell`. Add the single `role="status"` live region above the list now, focusable, since both later slices feed it. Add `revalidatePath("/transactions")` to `logSpend()` so a new entry appears here. Satisfies **AC-1**, **AC-3**, **AC-4**, **AC-21**, **AC-24**.
 3. [x] **The empty month.** The `EmptyState` naming the month with a link to the Log screen, and no total rendered at all. Satisfies **AC-6**.
-4. [x] **Editing, and the flash that carries its confirmation.** The `/transactions/[id]/edit` route reading one entry, `notFound()` for an unknown or foreign id, the form on the existing primitives with the category union for a hidden current category and its " (hidden)" marker, and the `updateTransaction` action: its own completeness check, the Zod shape, `parseAmount()` with the profile's decimals, the future date refusal, the database refusal messages, the zero rows case, and the row read back. Then the single use flash: the action sets it and redirects, and the list reads it once, clears it, and feeds it to the live region built in task 2. Nothing here puts a money figure in a URL. Satisfies **AC-9**, **AC-10**, **AC-11**, **AC-12**, **AC-13**, **AC-14**, **AC-15**, **AC-19**, **AC-20**, **AC-22**.
+4. [x] **Editing, and the handoff that carries its confirmation.** The `/transactions/[id]/edit` route reading one entry, `notFound()` for an unknown or foreign id, the form on the existing primitives with the category union for a hidden current category and its " (hidden)" marker, and the `updateTransaction` action: its own completeness check, the Zod shape, `parseAmount()` with the profile's decimals, the future date refusal, the database refusal messages, the zero rows case, and the row read back. Then the handoff that carries the confirmation: the action returns it, the form leaves it in `components/transactions/confirmation.ts` and navigates, and the list takes it once on mount and feeds it to the live region built in task 2, emptying that region on any history navigation. Nothing here puts a money figure in a URL, and nothing sends it through the server. Satisfies **AC-9**, **AC-10**, **AC-11**, **AC-12**, **AC-13**, **AC-14**, **AC-15**, **AC-19**, **AC-20**, **AC-22**.
 5. [x] **Deleting.** The `deleteTransaction` action, including the zero rows case reported honestly, and the in row confirm component: a client component in `components/transactions/`, alongside `LogSpendForm.tsx`, with focus moving to Confirm and returning to Delete on cancel or Escape. The delete action needs the currency too, since its confirmation names an amount, so it carries the same completeness check. Both row controls get their entry naming accessible names here, and focus moves to the status message once a delete succeeds and the row it was standing on is gone. Both actions revalidate `/transactions` and `/breakdown`. Satisfies **AC-8**, **AC-16**, **AC-17**, **AC-18**, **AC-19**, **AC-21**, **AC-22**, **AC-24**.
-6. [x] **Prove it.** Unit tests for the ordering, the same day tiebreak, and the total summing; a test that both loaders agree on a month, which is cheap now that they share one window; a check that a reload after an edit does not repeat the confirmation; the `axe` check extended to both new routes; and route protection checked for the signed out case. Satisfies **AC-7**, **AC-13**, **AC-15**, **AC-23**, and the money scenarios above.
+6. [x] **Prove it.** Unit tests for the ordering, the same day tiebreak, and the total summing; a test that both loaders agree on a month, which is cheap now that they share one window; a check that neither a reload nor a step back and forward through history repeats the confirmation; the `axe` check extended to both new routes; and route protection checked for the signed out case. Satisfies **AC-7**, **AC-13**, **AC-15**, **AC-23**, and the money scenarios above.
 
 ## Consequences
 
@@ -197,7 +222,7 @@ Ordered by the project's Skateboard approach: the thinnest usable whole first, t
 ## Follow-up
 
 - [ ] The shared month window is extracted during this build, but the two loaders remain separate. Feature 16, trends across months, is where spec 0005 expected a shared aggregate to earn its cost. Revisit the merge there rather than now.
-- [ ] The single use flash introduced here is the project's first, and a second one will want the same mechanism. If a third appears, it belongs in `lib/` as a named helper rather than being written per action.
+- [ ] The confirmation handoff introduced here is the project's first, and it deliberately sits beside this one feature. A second screen wanting the same thing should import it where it is; only a third belongs in `lib/` as a named helper.
 - [ ] Editing money leaves no history. Decide, before Release 3 adds budgets, whether an amendment record is wanted. Budgets make a silently edited past month more consequential, because a cap you met can become a cap you missed with no trace.
 - [ ] This closes spec 0006's follow up that correcting a logged spend has no route. Mark it done there when this ships.
 - [ ] Spec 0006 asked whether `merchant` earns a field in feature 7 or feature 10. This spec answers no for feature 7. Feature 10, search and filter, should settle it for good, since searching for a merchant is the case that would actually justify the column.

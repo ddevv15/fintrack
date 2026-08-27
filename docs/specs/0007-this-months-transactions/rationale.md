@@ -97,6 +97,55 @@ Two smaller calls deserve their reasoning recorded, because both look like detai
 
 **Two loaders, but one month window.** Merging the two loaders outright would make the totals equal by construction, which is genuinely better than equal by discipline. It was refused because feature 8 is shipped and verified, and rewriting its loader to serve a screen that does not exist yet trades a proven thing for an unproven one at the moment there is nothing to test the result against. The first draft of this spec left the mitigation as an optional follow up, which a cross check correctly called out: a spec that names something its own largest maintenance risk and then makes the fix optional has given a builder under pressure permission to skip it. So the extraction is now build task 1 and comes before the second loader is written, because extracting after the copy exists is how the copy survives. Separate loaders, one definition of what a month is and what counts as a spend. If that stops being enough, spec 0005 already anticipated feature 16 forcing the question properly.
 
-**A cookie flash rather than a query parameter, for the edit confirmation.** This decision only exists because of a gap the same cross check found: the app has no way to carry a message across a navigation. `LogSpendForm` shows its result inline and never navigates, and the one cross page precedent, sign in reading `?reset=done`, carries a static boolean with fixed copy. The confirmation here is dynamic and names an amount. Putting that in the URL would make it bookmarkable and replayable by the back button, so a stale "Saved 45.00 to Groceries" could be shown long after the entry changed again, which is the confidently wrong money figure this project's third rule exists to prevent. A single use cookie, set by the action and cleared by the list on first read, keeps money off the URL and makes the message unrepeatable by construction. Confirming on the edit screen instead would avoid the mechanism altogether and was the runner up, refused because it undoes the deliberate choice to land back on the list, and because the delete confirmation has to appear on the list regardless, so a second pattern would be needed anyway.
+**A cookie flash rather than a query parameter, for the edit confirmation.** This decision only exists because of a gap the same cross check found: the app has no way to carry a message across a navigation. `LogSpendForm` shows its result inline and never navigates, and the one cross page precedent, sign in reading `?reset=done`, carries a static boolean with fixed copy. The confirmation here is dynamic and names an amount. Putting that in the URL would make it bookmarkable and replayable by the back button, so a stale "Saved 45.00 to Groceries" could be shown long after the entry changed again, which is the confidently wrong money figure this project's third rule exists to prevent. A single use cookie, set by the action and cleared by the list on first read, keeps money off the URL and makes the message unrepeatable by construction. **This half of the paragraph was wrong, and is kept as written because a decision record should show what was believed at the time.** The cookie was built, measured, and replaced; see the correction at the end of this file. The refusal of the query parameter above it still stands, and is in fact the part that survived. Confirming on the edit screen instead would avoid the mechanism altogether and was the runner up, refused because it undoes the deliberate choice to land back on the list, and because the delete confirmation has to appear on the list regardless, so a second pattern would be needed anyway.
 
 Finally, on loading the whole month rather than paginating. The general rule is that unpaginated lists become production incidents, and it is a good rule. It does not bind here for a reason that must be stated so that it can be checked later rather than assumed: the query is bounded by a calendar month for one person, which is tens of rows in practice, and the alternative actively harms correctness, because paging means the visible rows and the total come from different reads and the completeness guard no longer proves anything. The guard is what makes this safe: an over sized month produces an honest refusal rather than a quietly short total. The moment a legitimate month can exceed the cap, this decision needs revisiting, and by then feature 10's filtering will likely have supplied the mechanism.
+
+## Correction, 2026-08-27: how the confirmation crosses the navigation
+
+This spec originally required the confirmation to travel in a single use server
+side cookie, set by `updateTransaction` and cleared by `/transactions` on its
+first render. That was written into AC-13 itself, as though the mechanism were
+part of the contract. It was built, it was measured, and it does not work. The
+criterion has been rewritten to state what has to be observably true, and the
+mechanism now lives in the design section where a mechanism belongs.
+
+**What actually happened.** Two separate faults, found by `/check verify` and
+confirmed with instrumentation rather than reasoning:
+
+1. **The confirmation arrived five times in ten.** A server action's
+   `redirect()` does not send the browser away and wait: Next renders the
+   redirect target inside the same POST and ships its payload with the response,
+   so the list rendered in a request that never carried the cookie. Navigating
+   from the form instead produced two requests for `/transactions`, one from the
+   action's own `revalidatePath` and one from the navigation. The proxy handed
+   the cookie to whichever arrived first and deleted it. Whenever that was not
+   the response the router committed, the sentence was gone for good.
+2. **When it did arrive, the back and forward buttons replayed it.** Rendering
+   the sentence on the server put it inside the payload the client router
+   caches. Instrumenting the mount showed the router sometimes keeps the
+   component alive across a history navigation rather than remounting it, so the
+   message stayed on screen for a save that had already been reported.
+
+**Why the correction is a mechanism change and not a decision change.** The
+choice this spec records, a read only list with corrections split between a
+dedicated edit route and an in row delete confirm, is untouched. So is every
+observable promise in AC-13: named from the stored row, never in the URL, shown
+exactly once. What changed is the channel, and the reason is general enough to
+be worth stating as a rule: a message only the browser needs should not travel
+through the server, because every request then becomes a possible consumer and
+after a write there is always more than one.
+
+The confirmation is now handed over in browser memory
+(`components/transactions/confirmation.ts`), taken once on mount, and the live
+region is emptied on `popstate`. Measured after the change: ten of ten
+confirmations shown, and no replay in eight back and forward cycles. The
+browser test that covers this had been flaky, failing one run in three, which is
+worth noting on its own: the suite was green often enough to look convincing and
+the bug shipped anyway. `/check verify` caught what the tests did not.
+
+**What this cost.** One narrow thing was lost and it is worth recording rather
+than glossing. With JavaScript turned off the form no longer navigates, so the
+confirmation is shown on the edit screen instead of on the list. The save itself
+is unaffected. The cookie design would not have served that case either, since
+the proxy would have consumed the message before the list rendered.
