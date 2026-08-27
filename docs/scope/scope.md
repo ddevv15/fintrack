@@ -17,7 +17,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 4 | Design system and UI foundation | Foundation | done |
 | 5 | Sign in and your account | Release 1 | done |
 | 6 | Log a spend | Release 1 | done |
-| 7 | This month's transactions | Release 1 | in-progress |
+| 7 | This month's transactions | Release 1 | done |
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | planned |
 | 10 | Search and filter your history | Release 2 | planned |
@@ -120,6 +120,7 @@ A plain list of what you logged this month, so you can spot a mistake and fix it
   - [x] Deleting from the row, confirmed in place, with focus and the announcement handled once the row is gone (AC-8, AC-16, AC-17, AC-18, AC-19, AC-21, AC-22, AC-24)
   - [x] Prove it: the ordering and summing tests, the two loaders agreeing on a month, no repeated confirmation on reload, and the axe check on both routes (AC-7, AC-13, AC-15, AC-23)
 - [x] Verify it: `/check verify this month's transactions`
+_All twenty four acceptance criteria pass. Verification found two defects and both were fixed. The confirmation after an edit arrived only about half the time and, when it did arrive, came back on the back button: it was being carried in a server cookie, and two requests raced to consume it. It is handed over inside the browser now, measured at ten arrivals in ten with no replay. The second defect was self inflicted between runs: acting on a code review note, an edit of an entry deleted elsewhere was made to refresh the page, which turned an honest "already gone" message into a 404 that swallowed what you had typed. Both now carry a regression test. Eleven verify steps are owed rather than failing, chiefly the screen reader listen through, tracked in [accessibility-pass.md](../accessibility-pass.md). Step by step detail in the spec's [verify.md](../specs/0007-this-months-transactions/verify.md)._
 
 ### 8. Where your money went
 spec [0005](../specs/0005-where-your-money-went/index.md) · code in `app/(app)/breakdown/`, `components/breakdown/`, `lib/breakdown.ts`
