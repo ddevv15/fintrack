@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@insforge/sdk/ssr/middleware";
 
-import { FLASH_COOKIE, FLASH_HEADER } from "@/lib/flash";
-
 /**
  * Next.js 16 renamed middleware to proxy. This runs before Server Components
  * render, so they never read a stale cookie, and it is where the door is shut
@@ -57,44 +55,8 @@ function isPublic(pathname: string): boolean {
   );
 }
 
-/**
- * Hand a waiting confirmation to the list, and clear it in the same breath.
- *
- * The other half of the single use flash in `lib/flash.ts`, and worth reading
- * with that file open. The proxy is the only place in a Next.js request that
- * can both read a cookie and clear it while a Server Component still gets to
- * see the value, which is exactly what "shown once" needs.
- *
- * The message moves onto a request header rather than staying in the cookie,
- * because Next merges a cookie the proxy sets into what the page reads, so
- * deleting it here would blank it for the very render meant to show it.
- *
- * Two narrow conditions, both there to stop the message being thrown away
- * before anybody sees it. Only `/transactions` renders it, so no other route
- * gets to consume it in passing. And a prefetch is skipped, because a prefetch
- * is the browser looking ahead rather than a person arriving, and letting one
- * clear the flash would delete a confirmation that was never displayed.
- */
-function carryFlash(request: NextRequest): NextResponse {
-  const waiting =
-    request.nextUrl.pathname === "/transactions" &&
-    !request.headers.get("next-router-prefetch")
-      ? request.cookies.get(FLASH_COOKIE)?.value
-      : undefined;
-
-  if (!waiting) return NextResponse.next({ request });
-
-  const forwarded = new Headers(request.headers);
-  forwarded.set(FLASH_HEADER, encodeURIComponent(waiting));
-
-  const response = NextResponse.next({ request: { headers: forwarded } });
-  response.cookies.delete(FLASH_COOKIE);
-
-  return response;
-}
-
 export async function proxy(request: NextRequest) {
-  const response = carryFlash(request);
+  const response = NextResponse.next({ request });
 
   // Returns an access token when there is a usable session, having refreshed it
   // if it was expiring. It returns null both for no session at all and for one

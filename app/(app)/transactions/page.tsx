@@ -4,7 +4,6 @@ import { MonthStatusProvider } from "@/components/transactions/MonthStatus";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Amount } from "@/components/ui/Amount";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { readFlash } from "@/lib/flash";
 import { requireCompleteSettings } from "@/lib/settings";
 import { formatMonth } from "@/lib/time";
 import { loadMonthTransactions } from "@/lib/transactions";
@@ -31,11 +30,6 @@ export default async function TransactionsPage() {
   const settings = await requireCompleteSettings();
   const month = await loadMonthTransactions();
 
-  // The confirmation an edit left behind, if there is one. Read only: clearing
-  // it is `proxy.ts`'s half of the single use flash, because Next.js does not
-  // let a render mutate a cookie. See `lib/flash.ts` (AC-13).
-  const flash = await readFlash();
-
   const monthName = formatMonth(month.month);
 
   return (
@@ -51,7 +45,7 @@ export default async function TransactionsPage() {
         announced somewhere that exists (AC-24), and focus still has to land on
         it (AC-17).
       */}
-      <MonthStatusProvider flash={flash}>
+      <MonthStatusProvider>
         {month.rows.length === 0 ? (
           // No total at all, not a zero (AC-6). A zero is a result, and "you
           // spent nothing" is a different claim from "you have logged nothing

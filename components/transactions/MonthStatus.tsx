@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { takeConfirmation } from "@/components/transactions/confirmation";
+
 /**
  * The one place this screen speaks from.
  *
@@ -56,21 +58,32 @@ export function useMonthStatus(): Announce {
 /**
  * The region, plus the list it speaks for.
  *
- * `flash` is the confirmation an edit left behind, read on the server from the
- * single use cookie in `lib/flash.ts`.
+ * It takes no confirmation as a prop. An edit leaves one in
+ * `confirmation.ts` on its way here and this picks it up on mount, so the
+ * sentence never travels through the server and no request can consume it. That
+ * file records why, and it is worth reading before changing any of this.
  */
-export function MonthStatusProvider({
-  flash,
-  children,
-}: {
-  flash?: string;
-  children: ReactNode;
-}) {
+export function MonthStatusProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState("");
   const regionRef = useRef<HTMLParagraphElement>(null);
 
+  /**
+   * What this mount took, so re-running the effect cannot lose it.
+   *
+   * Taking is destructive, which is what makes the confirmation single use.
+   * React runs an effect, cleans it up, and runs it again in development, so
+   * reading straight from `takeConfirmation()` each time would hand the message
+   * to the first run, have the cleanup cancel it, and give the second run
+   * nothing. Refs survive that, so the second run reuses what the first took.
+   *
+   * A real remount, which is what the back button causes, gets a fresh ref and
+   * an empty hand, because the message was already taken. That is precisely the
+   * replay AC-13 forbids, prevented by construction.
+   */
+  const taken = useRef<string | undefined>(undefined);
+
   /*
-   * The flash is put into the region after mount, not rendered into it.
+   * The confirmation is put into the region after mount, not rendered into it.
    *
    * That distinction is the whole reason this effect exists, so it is worth
    * stating plainly before somebody simplifies it away. A live region announces
@@ -92,11 +105,37 @@ export function MonthStatusProvider({
    * second, separate change.
    */
   useEffect(() => {
-    if (!flash) return;
+    if (taken.current === undefined) taken.current = takeConfirmation() ?? "";
 
-    const announcement = setTimeout(() => setMessage(flash), 0);
+    const confirmation = taken.current;
+    if (!confirmation) return;
+
+    const announcement = setTimeout(() => setMessage(confirmation), 0);
     return () => clearTimeout(announcement);
-  }, [flash]);
+  }, []);
+
+  /*
+   * Clear the sentence whenever the browser moves through its own history.
+   *
+   * Taking the confirmation once is not by itself enough, and this was measured
+   * rather than assumed. Going back to the form and forward again replayed it
+   * roughly one time in five, and the instrumentation showed why: on those
+   * runs the router kept this component alive across the navigation instead of
+   * remounting it, so `message` was never reset and the region still held a
+   * sentence about a save that had already been reported. The handoff was
+   * empty, exactly as intended; what leaked was the state already on screen.
+   *
+   * `popstate` fires for a back or a forward and never for the `router.push`
+   * that brings you here after a save, so this clears precisely the case AC-13
+   * names and nothing else. It covers both outcomes: if the component did
+   * remount it starts empty anyway, and if it did not, this empties it.
+   */
+  useEffect(() => {
+    const clear = () => setMessage("");
+
+    window.addEventListener("popstate", clear);
+    return () => window.removeEventListener("popstate", clear);
+  }, []);
 
   const announce = useCallback<Announce>((next, options) => {
     setMessage(next);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { updateTransaction } from "@/actions/transactions";
+import { holdConfirmation } from "@/components/transactions/confirmation";
 import { FormError } from "@/components/auth/FormError";
 import { SubmitButton } from "@/components/auth/SubmitButton";
 import { AmountInput } from "@/components/ui/AmountInput";
@@ -72,11 +73,14 @@ export function EditSpendForm({
    *
    * A `redirect()` inside a server action does not send the browser away and
    * wait: Next renders the destination inside the same POST and ships its
-   * payload back. The list would therefore render in a request that never
-   * carried the confirmation cookie, and the message would be set, stored, and
-   * never shown. Navigating from here makes arriving at the list a real
-   * request, which is what `proxy.ts` needs in order to hand the message over
-   * and clear it in one go. See `lib/flash.ts`.
+   * payload back, so the list would render before this action had returned the
+   * sentence for it to show.
+   *
+   * The confirmation is handed over in the browser rather than sent back
+   * through the server, and that is the fix for a measured bug rather than a
+   * preference: a server carried message is consumed by whichever of the two
+   * requests that follow a save happens to arrive first, and it arrived only
+   * half the time. `confirmation.ts` records the whole of it.
    *
    * Nothing is cleared on success, unlike the log form, because this form is
    * about to be navigated away from. What matters is only that a refusal keeps
@@ -86,7 +90,12 @@ export function EditSpendForm({
     async (previous, formData) => {
       const result = await updateTransaction(previous, formData);
 
-      if (result.status === "ok") router.push("/transactions");
+      if (result.status === "ok") {
+        // Left for the list, then navigate. This order matters: the list takes
+        // it as it mounts, so it has to be waiting before the push starts.
+        holdConfirmation(result.message ?? "");
+        router.push("/transactions");
+      }
 
       return result;
     },

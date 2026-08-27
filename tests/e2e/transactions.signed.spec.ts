@@ -320,8 +320,8 @@ test.describe("editing one entry", () => {
     await expect(seededRow(page, SEED_SPENDING[1])).toContainText(NOTE);
 
     /*
-     * The single use half of AC-13, and the reason the flash is a cookie the
-     * proxy strips rather than a query parameter.
+     * The single use half of AC-13, and the reason the confirmation is handed
+     * over inside the browser rather than sent back through the server.
      *
      * A confirmation naming a money figure that survives a reload is a stale
      * figure shown confidently, which is the failure rule 3 of AGENTS.md
@@ -335,6 +335,49 @@ test.describe("editing one entry", () => {
 
     await expect(page.getByRole("status")).toHaveText("");
     await expect(seededRow(page, SEED_SPENDING[1])).toContainText(NOTE);
+  });
+
+  test("the confirmation does not come back on back then forward (AC-13)", async ({
+    page,
+  }) => {
+    /*
+     * The regression test for a bug that shipped and was caught by /check
+     * verify, so it cannot come back quietly.
+     *
+     * The first implementation carried the sentence in a cookie and rendered it
+     * on the server. That put it inside the RSC payload the client router
+     * caches, so going back to the form and forward again replayed a
+     * confirmation for a save that had already been reported, which is exactly
+     * what AC-13 forbids. Reloading was already covered above and was never the
+     * failing case; the history buttons were.
+     *
+     * Taking the message from a browser side handoff on mount is what fixes it:
+     * the sentence is never in any payload, and a remount finds it already
+     * taken.
+     */
+    // Transport, not Groceries. Every other write in this file goes to
+    // Groceries, and these run in parallel, so sharing a row would have this
+    // test overwrite the note the one above asserts on.
+    await page.goto("/transactions");
+    await seededRow(page, SEED_SPENDING[0])
+      .getByRole("link", { name: /^Edit / })
+      .click();
+    await expect(page.getByLabel("Amount")).toBeVisible();
+
+    await page.getByLabel("Note").fill("history check");
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    await expect(page).toHaveURL(/\/transactions$/);
+    await expect(page.getByRole("status")).toContainText("Saved $30.00");
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/edit$/);
+    await page.goForward();
+    await expect(page).toHaveURL(/\/transactions$/);
+
+    // Given a second to settle, so this cannot pass by reading too early.
+    await page.waitForTimeout(1000);
+    await expect(page.getByRole("status")).toHaveText("");
   });
 
   test("renders the standard not found page for an id that is not yours (AC-15)", async ({

@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { setFlash } from "@/lib/flash";
 import type { FormState } from "@/lib/forms";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { currentSpendMonth } from "@/lib/month";
@@ -294,19 +293,16 @@ export async function logSpend(
  * reasons. Four columns move: the amount, the category, the day, and the note.
  * `user_id`, `direction`, `merchant`, `created_at`, and `id` are never touched.
  *
- * On success it puts the confirmation in the single use flash and reports `ok`.
- * The form is what navigates to the list, which reads the message out of the
- * flash and announces it (AC-13).
+ * On success it reports `ok` with the sentence naming what was stored, and does
+ * nothing else. The form owns what happens next: it hands that sentence to the
+ * list and navigates there, and the list announces it (AC-13). See
+ * `components/transactions/confirmation.ts` for why the message stays in the
+ * browser rather than travelling back through the server.
  *
  * It deliberately does not call `redirect()`, and the reason is measured rather
  * than stylistic: Next renders a redirect target inside the POST that ran the
- * action, so the list would render in a request that never carried the cookie,
- * the proxy would never get to hand it over, and the confirmation would be
- * silently empty every time. `lib/flash.ts` sets this out in full.
- *
- * `message` is returned as well as flashed, so that a browser with JavaScript
- * turned off, which stays on this screen because nothing navigates it, still
- * gets told the save worked instead of being shown an unchanged form.
+ * action, so the list would render before this function had returned anything
+ * for it to show.
  */
 export async function updateTransaction(
   _previous: FormState,
@@ -374,7 +370,14 @@ export async function updateTransaction(
   // saving it, in another tab or on another device. Saying so is the honest
   // answer; reporting a successful save would claim a row exists that does not
   // (AC-19).
+  //
+  // Revalidated for the same reason `deleteTransaction` revalidates its own
+  // identical branch: the list behind this form is still showing a row that no
+  // longer exists, and leaving it there is its own small lie.
   if (changed.length === 0) {
+    revalidatePath("/transactions");
+    revalidatePath("/breakdown");
+
     return {
       status: "error",
       message:
@@ -399,8 +402,6 @@ export async function updateTransaction(
   const message = movedAway
     ? `Saved ${stored}. That is in ${formatMonth(saved.occurred_on)}, so it is no longer on this month's list.`
     : `Saved ${stored}.`;
-
-  await setFlash(message);
 
   revalidatePath("/transactions");
   revalidatePath("/breakdown");
