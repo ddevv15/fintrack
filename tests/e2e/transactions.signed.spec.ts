@@ -1,7 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { SEED_PREFIX, SEED_SPENDING } from "./signed-in";
+import {
+  SEED_PREFIX,
+  SEED_SPENDING,
+  seedDate,
+  signInAccountA,
+} from "./signed-in";
 
 /**
  * This month's entries, driven signed in against the seeded month.
@@ -378,6 +383,74 @@ test.describe("editing one entry", () => {
     // Given a second to settle, so this cannot pass by reading too early.
     await page.waitForTimeout(1000);
     await expect(page.getByRole("status")).toHaveText("");
+  });
+
+  test("reports an entry deleted elsewhere, and keeps what you typed (AC-19)", async ({
+    page,
+  }) => {
+    /*
+     * The regression test for a bug that shipped twice.
+     *
+     * `updateTransaction` handles the zero rows case correctly and always has.
+     * What broke it both times was revalidating on that branch: revalidation
+     * re-renders the route the person is standing on, that route is this
+     * entry's edit form, and its loader calls `notFound()` the moment the row
+     * is gone. The 404 then replaced the form and took the message and
+     * everything typed with it. The message was in the response the whole time,
+     * underneath the 404.
+     *
+     * The row is created in a previous month on purpose. This test needs an
+     * entry it can delete without warning, and anything dated in the current
+     * month would move the totals that `breakdown.signed.spec.ts` asserts on
+     * while it runs alongside. The edit route reads by id and does not filter
+     * by month, so a last month row opens perfectly well.
+     */
+    const account = await signInAccountA();
+    const [category] = (await account.select(
+      "categories",
+      `select=id&name=eq.${encodeURIComponent(`${SEED_PREFIX}-Groceries`)}`,
+    )) as { id: string }[];
+
+    const seeded = new Date(`${seedDate()}T00:00:00Z`);
+    const lastMonth = new Date(
+      Date.UTC(seeded.getUTCFullYear(), seeded.getUTCMonth() - 1, 12),
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    const [created] = await account.insert("transactions", [
+      {
+        category_id: category.id,
+        direction: "spend",
+        amount_minor: 4242,
+        occurred_on: lastMonth,
+      },
+    ]);
+    const id = created.id as string;
+
+    await page.goto(`/transactions/${id}/edit`);
+    await expect(page.getByLabel("Amount")).toHaveValue("42.42");
+
+    // Deleted from under the open form, the way a second tab or a phone would.
+    await account.remove("transactions", `id=eq.${id}`);
+
+    await page.getByLabel("Amount").fill("99.99");
+    await page.getByLabel("Note").fill("saving into thin air");
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    // Told plainly, rather than shown a 404.
+    await expect(page.getByText(/already gone/)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(
+      "This page could not be found",
+    );
+    await expect(page.locator("main")).not.toContainText("Saved $");
+
+    // Still on the form, with everything typed still in it. Losing it is the
+    // failure feature 6 found the hard way, and the reason these actions return
+    // a FormState rather than throwing.
+    await expect(page).toHaveURL(/\/edit$/);
+    await expect(page.getByLabel("Amount")).toHaveValue("99.99");
+    await expect(page.getByLabel("Note")).toHaveValue("saving into thin air");
   });
 
   test("renders the standard not found page for an id that is not yours (AC-15)", async ({

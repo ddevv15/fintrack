@@ -371,13 +371,18 @@ export async function updateTransaction(
   // answer; reporting a successful save would claim a row exists that does not
   // (AC-19).
   //
-  // Revalidated for the same reason `deleteTransaction` revalidates its own
-  // identical branch: the list behind this form is still showing a row that no
-  // longer exists, and leaving it there is its own small lie.
+  // Deliberately does NOT revalidate, and this is the one place in this file
+  // where that asymmetry with `deleteTransaction` is correct rather than an
+  // oversight. Revalidating makes Next re-render the route the person is
+  // standing on, and the route they are standing on is this entry's edit form,
+  // whose loader calls `notFound()` the moment the row is gone. The 404 then
+  // replaces the form and takes the message and everything they typed with it.
+  // Measured: with these two lines the screen showed "This page could not be
+  // found", with them gone it shows the sentence below.
+  //
+  // `deleteTransaction` can revalidate on the same branch because it runs on
+  // the list, which renders perfectly well with one row fewer.
   if (changed.length === 0) {
-    revalidatePath("/transactions");
-    revalidatePath("/breakdown");
-
     return {
       status: "error",
       message:
