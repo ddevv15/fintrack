@@ -241,6 +241,57 @@ test("a category with entries offers no delete control at all", async ({
   await expect(page.getByText(/cannot be deleted/)).toBeVisible();
 });
 
+test("draws each row's colour swatch as a box you can actually see (AC-1)", async ({
+  page,
+}) => {
+  await page.goto("/categories");
+
+  const dots = page.getByRole("listitem").locator("[data-category-dot]");
+  await expect(dots.first()).toBeAttached();
+
+  /*
+   * Visibility is the assertion, and it is doing real work here rather than
+   * restating that the element exists. The dot shipped once with the right
+   * background colour, the right class list, and no display of its own, so a
+   * span stayed inline, `size-3` applied to nothing, and every swatch rendered
+   * 0 by 0. Playwright calls an empty bounding box invisible, which is the one
+   * check that separates "the dot is there" from "the dot is there and has a
+   * size". `toBeAttached()` above proves the loop is not passing on an empty
+   * list.
+   */
+  for (const dot of await dots.all()) {
+    await expect(dot).toBeVisible();
+  }
+
+  const box = await dots.first().boundingBox();
+  expect(box?.width ?? 0).toBeGreaterThan(0);
+});
+
+test("renders the standard not found page for a category id that is not yours (AC-20)", async ({
+  page,
+}) => {
+  // A well formed uuid belonging to nobody. Another account's id is already
+  // invisible to the query through row level security; this proves the
+  // handling does not put the difference back.
+  const response = await page.goto(
+    "/categories/00000000-0000-4000-8000-000000000000/edit",
+  );
+
+  expect(response?.status()).toBe(404);
+});
+
+test("renders the same page for a category id that is not even a uuid (AC-20)", async ({
+  page,
+}) => {
+  // Without the uuid check in `getManagedCategory` this reaches PostgREST,
+  // fails on 22P02, and renders the error boundary with the raw database error
+  // in it, while the test above renders not found. That difference is itself
+  // an answer, which is exactly what AC-20 forbids.
+  const response = await page.goto("/categories/not-a-uuid/edit");
+
+  expect(response?.status()).toBe(404);
+});
+
 test("every categories screen is free of WCAG 2.2 AA violations", async ({
   page,
 }) => {

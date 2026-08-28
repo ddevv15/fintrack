@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { createInsforgeServer } from "@/lib/insforge-server";
 import {
   categorySchema,
@@ -255,6 +257,14 @@ export async function listManagedCategories(): Promise<
 export async function getManagedCategory(
   id: string,
 ): Promise<ManagedCategory | undefined> {
+  // Checked before the query rather than after, the same way
+  // `loadTransactionForEdit` does it and for the same reason. PostgREST answers
+  // a malformed uuid with an error, not an empty result, so without this a typo
+  // in the URL throws and renders the error boundary while a stranger's id
+  // renders not found, and the difference between those two pages is itself the
+  // signal AC-20 exists to remove.
+  if (!z.uuid().safeParse(id).success) return undefined;
+
   const insforge = await createInsforgeServer();
 
   const categories = await insforge.database

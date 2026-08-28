@@ -38,7 +38,13 @@ export function CategoryRow({ category }: { category: ManagedCategory }) {
         <span
           aria-hidden="true"
           data-category-dot={category.color}
-          className={`size-3 shrink-0 rounded-full ${categorySwatchClasses[category.color]}`}
+          // `block` is load bearing, not tidying. A span is inline by default,
+          // and width and height do nothing on an inline element, so `size-3`
+          // leaves the dot 0 by 0 and it never paints. `CategoryChip`'s
+          // identical swatch escapes that only because its own wrapper is
+          // `inline-flex`, which gives its children a box; `ListRow` hands the
+          // leading slot a plain `<div>` and lends nothing.
+          className={`block size-3 shrink-0 rounded-full ${categorySwatchClasses[category.color]}`}
         />
       }
       title={category.name}
