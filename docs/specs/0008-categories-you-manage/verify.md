@@ -85,3 +85,45 @@ Nothing here is ticked yet: the feature is not built. Steps that a test should o
 - [ ] With a screen reader, move through the list → each row's hide and edit actions carry an `aria-label` such as `Hide Groceries`, so which row an action belongs to is never ambiguous → AC-23 _(blocked by a screen reader session; belongs in `docs/owed-checks.md`)_
 - [ ] With a screen reader, complete an add → the confirmation is announced once → AC-19, AC-23 _(blocked by a screen reader session)_
 - [ ] View the list with colour vision simulation → every category is still distinguishable, because the name and the count carry the meaning → AC-5, AC-23
+
+## What the automated suites now cover
+
+Added by `/develop` once the feature was built. These steps above are locked by
+a test, so `/check verify` can read the test rather than repeat the click.
+
+| Covered | By | Steps it locks |
+|---|---|---|
+| The colour order and the preselected colour | `tests/unit/category-colors.test.ts` | AC-5's "first colour in the constraint's order not already used", including the gap case and the all ten used fallback |
+| The view returns a real `0`, not a missing row | `tests/integration/category-management.test.ts` | AC-3 |
+| A second account sees none of the first's counts | `tests/integration/category-management.test.ts` | AC-22, the one that cannot be checked by reading the migration |
+| Two tabs cannot both hide one of your last two | `tests/integration/category-management.test.ts` | AC-13's concurrency half |
+| Hiding moves no total, and keeps the name and colour | `tests/integration/category-management.test.ts` | AC-14 |
+| Add, rename, hide, unhide, delete, end to end signed in | `tests/e2e/categories.signed.spec.ts` | AC-1, AC-2, AC-3, AC-4, AC-7, AC-10, AC-12, AC-15, AC-16, AC-18, AC-19 |
+| No WCAG 2.2 AA violations on either screen | `tests/e2e/categories.signed.spec.ts` | AC-23's automated half |
+
+Still owed to a person, because no test can answer them: everything under
+"Owed: the human listen-through" in
+[docs/accessibility-pass.md](../../accessibility-pass.md), and the 40 category
+cap (AC-9), which no suite exercises because reaching it means creating forty
+rows on a shared account.
+
+## One step the spec did not ask for
+
+- [ ] With exactly two visible spend categories, hide both from two tabs at the same moment, repeatedly → one always succeeds and one is always refused with the reason, never both → AC-13
+
+The trigger this spec sketched reads a count and then allows the write, and
+inside one trigger that is still two steps. Two tabs hiding two different rows
+are two separate `READ COMMITTED` transactions that take no lock in common, so
+nothing makes them take turns and both can read "one other is still visible"
+before either commits. The window is narrow, which is what makes it dangerous:
+a race test passes on most runs against the sketched version.
+
+`migrations/20260828143000_serialise-last-visible-guard.sql` closes it by taking
+a lock on the account's own `profiles` row before counting, so this account's
+hides and deletes queue behind each other and the count is never read while
+another is in flight. Locking the sibling categories instead would deadlock, and
+the loser of a deadlock cannot be told why it lost.
+
+The spec's SQL block still shows the earlier version. Worth reconciling in the
+spec rather than only here: `/architect categories you manage: the last visible
+guard needs a lock to hold under two tabs`.
