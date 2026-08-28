@@ -19,7 +19,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 6 | Log a spend | Release 1 | done |
 | 7 | This month's transactions | Release 1 | done |
 | 8 | Where your money went | Release 1 | done |
-| 9 | Categories you manage | Release 2 | planned |
+| 9 | Categories you manage | Release 2 | in-progress |
 | 10 | Search and filter your history | Release 2 | planned |
 | 11 | Export and backup | Release 2 | planned |
 | 12 | Error monitoring | Release 2 | planned |
@@ -137,9 +137,17 @@ The screen that answers your actual question: total spent this month, split by c
 ## Release 2: make it yours, and keep it safe
 
 ### 9. Categories you manage
+spec [0008](../specs/0008-categories-you-manage/index.md) · code in `app/(app)/categories/`, `actions/categories.ts`, `components/categories/`, `lib/categories.ts`, `lib/category-colors.ts`, `migrations/20260828140000_category-usage-and-last-visible-guard.sql`
 Rename, add, and hide categories so the breakdown matches how you actually think about your money.
 **Done when:** you can add, rename, and hide a category, and existing entries still point at the right one after a rename.
-- [ ] Build it: `/develop categories you manage`
+- [x] Design it (spec): `/architect categories you manage`
+- [x] Build it: `/develop categories you manage`
+  - [x] See your categories, and add one: the usage counting view with its trigger and grants, the list with its Hidden section, the colour picker, and the create action with its refusals (AC-1 to AC-9, AC-18 to AC-23)
+  - [x] Correct one: the edit screen, prefilled, writing name and colour and never the kind (AC-10, AC-11)
+  - [x] Retire one without losing its history: hide and unhide from the row, the last visible category guard, and the proof that no total moves (AC-12, AC-13, AC-14)
+  - [x] Clear a mistake: delete behind a confirm, gated on the entry count, with the database's refusal as the final word (AC-15, AC-16, AC-17)
+  - [x] Prove it: the two account check on the view, the two tab race on the guard, and the keyboard and screen reader pass (AC-13, AC-22, AC-23)
+- [ ] Verify it: `/check verify categories you manage`
 
 ### 10. Search and filter your history
 Chase down one specific charge, or look at a single category over a stretch of time.
@@ -213,6 +221,7 @@ Out of scope for the current build pass, kept so the plan stays honest.
 - **Written insights**: the app tells you what changed and why it matters · needs a decision
 - **How dates read where you are**: the profile carries a currency and a timezone but no locale, so every date and month name is formatted `en-US` for everyone · needs a decision · from spec 0005
 - **Real time updates**: screens refresh themselves the moment data changes elsewhere, rather than on the next load · needs a decision
+- **Add a category while logging a spend**: create one from the Log screen picker at the moment a spend fits nothing you have, rather than going to the categories screen and losing what you typed · needs a decision · from spec 0008
 - **A record of amendments**: editing an entry changes what past months say, and nothing records that it happened or what it was before. Worth deciding before budgets land in Release 3, since a cap you met can quietly become a cap you missed · needs a decision · from spec 0007
 
 ## Legend

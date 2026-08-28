@@ -255,3 +255,71 @@ rather than somewhere they have to navigate out of.
 The same caveat as the earlier passes applies: nobody has listened to this route
 with a real screen reader yet, so AC-8 is satisfied by the automated and tree
 level checks but not yet by ear.
+
+# Accessibility pass: categories you manage
+
+Spec 0008, AC-23. Two new screens (`/categories` and its add and edit forms) and
+three new controls: a colour radio group, a hide control on every row, and a
+delete confirm step.
+
+## Automated, and passing
+
+`tests/e2e/categories.signed.spec.ts` runs `@axe-core/playwright` at WCAG 2.2 AA
+against `/categories` and `/categories/new`, signed in, and fails the run on any
+violation. It found none. The same suite drives the whole flow, add, rename,
+hide, unhide, delete, entirely through accessible names (`Edit Groceries`,
+`Hide Groceries`, `Confirm deleting Groceries`), so a control whose name stopped
+saying which category it belongs to would fail the suite rather than only
+looking fine.
+
+## The colour picker, which is the one worth explaining
+
+Colour is the whole subject of this control, which makes it the one place where
+colour cannot carry any meaning on its own.
+
+Three things do that work. Every swatch has its colour written beside it in
+words, so the option is `Green` and not a green square. A colour one of your
+categories already uses says `used` in text next to it, rather than being dimmed
+or marked with a ring. And the selected option is shown by a heavier border and
+a check mark, never by a colour change, because a colour change on a swatch is
+indistinguishable from the swatch itself.
+
+It is a real `<fieldset>` of real `<input type="radio">` elements. That is what
+makes arrow key navigation, the single tab stop, and the group's announcement
+arrive from the browser rather than being rebuilt. The inputs carry `sr-only`,
+which keeps them focusable and in the accessibility tree while the swatch and
+the word are what you see; `hidden` or `display: none` would take them out of
+both. The focus ring is drawn on the visible label through `has-focus-visible`,
+so focus is visible on the thing the eye is actually on.
+
+## What the accessibility tree exposes
+
+| Element | Exposed as |
+|---|---|
+| Name | textbox, labelled "Name", described by its hint then its error, `aria-invalid` when refused |
+| Colour | radiogroup, labelled "Colour", ten radios named "Green", "Orange used", and so on |
+| Add / Save | button, disabled while saving, its label changing to "Adding..." / "Saving..." |
+| Each row's Edit | link, named "Edit &lt;category&gt;" |
+| Each row's Hide | button, named "Hide &lt;category&gt;" or "Unhide &lt;category&gt;" |
+| Delete | button, named "Delete &lt;category&gt;", replaced on click by "Confirm deleting &lt;category&gt;" and "Keep &lt;category&gt;" |
+| Confirmation | `status` region, present and empty on arrival, holding the stored sentence a tick later |
+| Hidden section | `h2` "Hidden", labelling its own list, absent entirely when nothing is hidden |
+
+Focus moves in three places, all deliberate. Revealing the delete confirm step
+moves focus onto Confirm; dismissing it puts focus back on Delete. Hiding or
+unhiding a category moves focus to the status region, because that control's own
+row is about to be unmounted from one list and remounted under the other
+heading, and focus left on a removed element drops to the top of the document.
+
+## Owed: the human listen-through
+
+| # | To check | Why the tree cannot answer it |
+|---|---|---|
+| 1 | Confirm the ten radios are announced as one group of ten, and not as ten unrelated controls | Whether a reader announces the group and the position depends on the reader and its verbosity |
+| 2 | Confirm "used" is heard as part of the option and not as loose text after it | It is inside the label, but where a reader breaks the accessible name is its own call |
+| 3 | Confirm hiding a category is actually spoken, and that focus landing on the status region does not swallow the announcement | Focus and a live region update happen in the same tick, and which wins is reader dependent |
+| 4 | Confirm the confirm step's question is not read three times over | The sentence is `aria-hidden` precisely because both buttons already name the category, and whether that lands is a listening question |
+
+The same caveat as every earlier pass applies: nobody has listened to these
+routes with a real screen reader yet, so AC-23 is satisfied by the automated and
+tree level checks but not yet by ear.
