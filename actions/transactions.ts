@@ -13,7 +13,7 @@ import {
   parseRow,
   type MonthTransactionRow,
 } from "@/lib/schema";
-import { getSettings, type Settings } from "@/lib/settings";
+import { completeProfileOrRefusal } from "@/lib/settings";
 import { formatMonth, formatPlainDate, today } from "@/lib/time";
 
 /**
@@ -38,44 +38,6 @@ function fieldError(name: string, message: string): FormState {
     status: "error",
     message: "Check the fields below.",
     fieldErrors: { [name]: message },
-  };
-}
-
-/**
- * Narrow the profile, or hand back the refusal to show in place.
- *
- * Every action here needs a currency and a time zone, and neither may be
- * guessed, so each one starts with this. It is not redundant with the redirect
- * in `app/(app)/layout.tsx`, and that is worth knowing before anyone removes
- * it: a server action is its own entry point reached by a POST, so no layout
- * runs for it and no redirect in one can protect it (spec 0006 AC-14, spec 0007
- * AC-22).
- *
- * It uses `getSettings()` and narrows, rather than `requireCompleteSettings()`
- * which throws. The distinction is not style. A throw here escapes the action
- * and lands on the route error boundary, which replaces the whole page, loses
- * everything you typed, and shows a message written for whoever maintains this
- * code rather than for you. A page render can afford that, because the layout
- * has already guaranteed completeness before it runs and there is no form to
- * preserve; an action cannot. Feature 6 found this the hard way in
- * verification, which is why it is one helper now rather than three copies.
- */
-async function completeProfileOrRefusal(
-  doing: string,
-): Promise<
-  | { ok: true; settings: Extract<Settings, { isComplete: true }> }
-  | { ok: false; state: FormState }
-> {
-  const settings = await getSettings();
-
-  if (settings.isComplete) return { ok: true, settings };
-
-  return {
-    ok: false,
-    state: {
-      status: "error",
-      message: `Choose your currency and time zone before ${doing}, on the account screen.`,
-    },
   };
 }
 
