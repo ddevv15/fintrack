@@ -82,6 +82,8 @@ MCP servers: insforge (configured in `.mcp.json`, restart the session to load it
 
 ## Context files
 
+- [docs/owed-checks.md](docs/owed-checks.md): every verification step written down and not yet closed, grouped by what is blocking it.
+
 <!-- Nested AGENTS.md files are listed here as they are created -->
 
 - [components/ui/AGENTS.md](components/ui/AGENTS.md): the shared UI primitives, their server first rule, and the token and class name constraints that are easy to break.
