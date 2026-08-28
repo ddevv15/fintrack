@@ -172,6 +172,35 @@ export const categoryUpdateSchema = categoryInsertSchema
   .extend({ is_hidden: z.boolean().optional() });
 export type CategoryUpdate = z.infer<typeof categoryUpdateSchema>;
 
+/**
+ * One row of `public.category_usage`, the view that counts your entries.
+ *
+ * `entry_count` comes back from a Postgres `count()`, which is a bigint, and
+ * PostgREST renders a bigint as a JSON number or as a string depending on the
+ * driver. Both are accepted and normalised to one number, the same way
+ * `minorUnitsSchema` above does it, so nothing downstream has to know which
+ * arrived.
+ *
+ * Non negative rather than positive: the view uses a LEFT JOIN precisely so a
+ * category nobody has used yet yields a real `0` instead of no row at all, and
+ * that zero is what the delete control reads (spec 0008, AC-15). A schema that
+ * refused it would throw away the one value the feature is built on.
+ *
+ * `user_id` is selected even though row level security already restricts these
+ * rows to your own. It is what AC-22's two account check reads, and a column
+ * that is never selected cannot be checked.
+ */
+export const categoryUsageSchema = z.object({
+  user_id: z.uuid(),
+  category_id: z.uuid(),
+  entry_count: z
+    .union([z.number(), z.string().regex(/^\d+$/)])
+    .transform((value) => (typeof value === "string" ? Number(value) : value))
+    .refine(Number.isSafeInteger, "an entry count must be a whole number")
+    .refine((count) => count >= 0, "an entry count cannot be negative"),
+});
+export type CategoryUsage = z.infer<typeof categoryUsageSchema>;
+
 /** A spend or an income you logged. */
 export const transactionSchema = z.object({
   id: z.uuid(),
