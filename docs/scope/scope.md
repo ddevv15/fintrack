@@ -19,7 +19,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 6 | Log a spend | Release 1 | done |
 | 7 | This month's transactions | Release 1 | done |
 | 8 | Where your money went | Release 1 | done |
-| 9 | Categories you manage | Release 2 | in-progress |
+| 9 | Categories you manage | Release 2 | done |
 | 10 | Search and filter your history | Release 2 | planned |
 | 11 | Export and backup | Release 2 | planned |
 | 12 | Error monitoring | Release 2 | planned |
@@ -147,7 +147,7 @@ Rename, add, and hide categories so the breakdown matches how you actually think
   - [x] Retire one without losing its history: hide and unhide from the row, the last visible category guard, and the proof that no total moves (AC-12, AC-13, AC-14)
   - [x] Clear a mistake: delete behind a confirm, gated on the entry count, with the database's refusal as the final word (AC-15, AC-16, AC-17)
   - [x] Prove it: the two account check on the view, the two tab race on the guard, and the keyboard and screen reader pass (AC-13, AC-22, AC-23)
-- [ ] Verify it: `/check verify categories you manage`
+- [x] Verify it: `/check verify categories you manage`
 
 ### 10. Search and filter your history
 Chase down one specific charge, or look at a single category over a stretch of time.

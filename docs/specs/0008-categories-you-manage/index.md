@@ -1,7 +1,7 @@
 # 0008. Categories you manage
 
 **Date**: 2026-08-28
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
