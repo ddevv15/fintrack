@@ -45,7 +45,7 @@ Build step 11, the rest of the attempt limiting, has since been built, so the fi
 
 - [x] `/settings` → change your display name → saved, and the home greeting changes → AC-16
 - [x] Change your time zone → saved → AC-16
-- [ ] With no entries logged, the currency is a picker; log one entry, reload → the currency reads as fixed with the reason in plain words → AC-12, AC-16
+- [x] With no entries logged, the currency is a picker; log one entry, reload → the currency reads as fixed with the reason in plain words → AC-12, AC-16
 - [ ] Change your password from `/settings` using the emailed code → the old one stops working → AC-17 _(no current password field: the platform exposes no change password call, so the code proves mailbox control instead)_
 - [ ] With a second browser signed in on the same account, change the password in the first → the second stops working on its next request → AC-17
 - [x] Delete the account: typing the wrong address is refused; typing your own removes it → AC-18
@@ -66,14 +66,14 @@ Build step 11, the rest of the attempt limiting, has since been built, so the fi
 
 One per row of the spec's table. These are the ones that fail quietly if a value comes from the wrong place.
 
-- [ ] Sign in on a JPY profile → the stored integer 500 renders as `¥500`, not `¥5` → AC-10
-- [ ] The same integer on a USD profile → `$5.00`; on a KWD profile → three decimal places → AC-10
+- [x] Sign in on a JPY profile → the stored integer 500 renders as `¥500`, not `¥5` → AC-10
+- [x] The same integer on a USD profile → `$5.00`; on a KWD profile → three decimal places → AC-10
 - [x] Search the repository for a literal `100` in money handling → none outside a test → AC-9
-- [ ] Set your profile zone to `Pacific/Kiritimati` and the server's to something far behind it, at an hour where they differ in date → the app's idea of today follows your profile, not the server → AC-13
+- [x] Set your profile zone to `Pacific/Kiritimati` and the server's to something far behind it, at an hour where they differ in date → the app's idea of today follows your profile, not the server → AC-13
 - [ ] Log an entry late on the last evening of a month in your own zone → it lands in that month, not the next → AC-13
 - [x] Delete your profile row by hand, then load a page that shows money → a plain error, and no amount rendered anywhere on it → AC-15
 - [x] Confirm no signed in code path reads `APP_TIMEZONE` or `APP_CURRENCY`: `grep -rn "APP_TIMEZONE\|APP_CURRENCY" app components lib actions` → only `lib/env.ts`, `lib/money.ts` defaults, and the setup screen suggestions → AC-13
-- [ ] The `/setup` currency list renders with no database query in the network tab → AC-11
+- [x] The `/setup` currency list renders with no database query in the network tab → AC-11
 
 ## Commands
 
@@ -105,3 +105,56 @@ One per row of the spec's table. These are the ones that fail quietly if a value
 - **AC-17** password change ends other sessions · covered, the emailed code now in the spec
 - **AC-18** deletion needs your own address and leaves nothing · covered
 - **AC-19** only your own rows · covered by `locale-guards` and `row-level-security` across two real accounts
+
+## Re-run, 2026-08-27, after features 6 and 7 shipped
+
+Five steps closed. This feature shipped with four of them blocked on "a screen
+that renders money or a date", and those screens now exist.
+
+- The `/setup` currency list offers 20 currencies, and the browser makes no
+  request to the backend for it (AC-11).
+- With no entries the currency is a picker hinting "It fixes itself the moment
+  you log your first entry"; after one entry the picker is gone and the screen
+  reads "Fixed, now that this account has entries", with the database refusing
+  the change as well (`currency cannot change once this account has
+  transactions`) (AC-12, AC-16).
+- The Log screen's date follows the profile's zone, not the server's: on
+  `Pacific/Kiritimati` it read 2026-08-27 and on `Pacific/Midway` 2026-08-26,
+  while `APP_TIMEZONE` stayed `America/New_York` throughout (AC-13).
+- A yen profile and a three decimal profile render and refuse decimals
+  correctly, covered by `log-spend.signed.spec.ts` against the second account
+  (AC-10).
+
+Thirteen steps remain open, none of them failing. What blocks each one:
+
+| Blocked by | Steps |
+|---|---|
+| A real mailbox, for an emailed code | 5 |
+| Real elapsed time, a week | 1 |
+| An unverified account, which cannot be made without a mailbox | 1 |
+| Blocking Arcjet at the network level | 3 |
+| A real month boundary | 1 |
+| The browser test harness, see below | 1 |
+| Not run on purpose, see below | 1 |
+
+**The harness cannot prove AC-4, and that is worth knowing.** The signed in
+suite builds its session in `signed-in.setup.ts` from a raw API call, not from
+the sign in form. That session carries one cookie,
+`insforge_access_token`, with `expires: -1`, so it is a session cookie that dies
+when the browser closes, and there is no refresh token at all. A real sign in
+goes through `createAuthActions`, which writes two cookies including an httpOnly
+refresh token. So "close the browser entirely and reopen" cannot pass here for a
+reason that has nothing to do with the app.
+
+The consequence is larger than one step: the access token lives fifteen minutes,
+every signed in test finishes well inside that, and no test in the project has a
+refresh token to use. **Nothing exercises the refresh path**, neither
+`updateSession` in `proxy.ts` nor `/api/auth/refresh`. Closing AC-4 properly
+means giving the harness a real session, which is harness work rather than app
+work.
+
+**The `/forgot-password` timing step was deliberately not run.** Comparing an
+address that has an account against one that does not means asking for a real
+password reset, which sends a real email, and doing it enough times to compare
+timing risks tripping the attempt limiter on a live account. That needs a
+person's go ahead rather than an agent's judgement.
