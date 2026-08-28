@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithRef } from "react";
 
 import { cn } from "@/lib/ui";
 
@@ -32,7 +32,14 @@ const sizeClasses: Record<ButtonSize, string> = {
   md: "h-11 px-4 text-sm",
 };
 
-type ButtonProps = ComponentPropsWithoutRef<"button"> & {
+/**
+ * `ComponentPropsWithRef` rather than `WithoutRef`, so a caller can hold a ref
+ * to the real element. React 19 passes `ref` as an ordinary prop, so this costs
+ * nothing and changes nothing for callers that do not use it. It is here
+ * because a control that manages focus needs one: a confirm step has to move
+ * focus onto the button it just revealed, and back again if it is dismissed.
+ */
+type ButtonProps = ComponentPropsWithRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
 };
