@@ -1,7 +1,7 @@
 # 0010. Export and backup
 
 **Date**: 2026-08-29
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

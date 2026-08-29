@@ -21,7 +21,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | done |
 | 10 | Search and filter your history | Release 2 | done |
-| 11 | Export and backup | Release 2 | in-progress |
+| 11 | Export and backup | Release 2 | done |
 | 12 | Error monitoring | Release 2 | planned |
 | 13 | Budgets per category | Release 3 | planned |
 | 14 | Income and money coming in | Release 4 | planned |
@@ -173,7 +173,7 @@ Take everything you logged out of the app as a file, so months of typing are nev
   - [x] A read that proves itself: keyset paging so a concurrent write cannot duplicate or drop a row, the count comparison, and a ceiling that refuses rather than truncates (AC-2, AC-11, AC-12, AC-13, AC-20)
   - [x] The transactions download: the ten columns, the money and date rendering, the route, the filename in your own timezone, and the Settings link (AC-1, AC-4, AC-6, AC-7, AC-14, AC-15, AC-16)
   - [x] The categories download: its six columns, its route, and its link, so the pair is a real backup (AC-3, AC-5)
-- [ ] Verify it: `/check verify export and backup`
+- [x] Verify it: `/check verify export and backup`
 
 ### 12. Error monitoring · needs a decision
 Find out when something broke instead of silently losing an entry.
