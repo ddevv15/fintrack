@@ -1,7 +1,7 @@
 # 0009. Search and filter your history
 
 **Date**: 2026-08-28
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

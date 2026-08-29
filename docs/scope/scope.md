@@ -20,7 +20,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 7 | This month's transactions | Release 1 | done |
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | done |
-| 10 | Search and filter your history | Release 2 | in-progress |
+| 10 | Search and filter your history | Release 2 | done |
 | 11 | Export and backup | Release 2 | planned |
 | 12 | Error monitoring | Release 2 | planned |
 | 13 | Budgets per category | Release 3 | planned |
@@ -160,7 +160,7 @@ Chase down one specific charge, or look at a single category over a stretch of t
   - [x] The screen itself: `/history` with its plain form, the results list, the fifth nav tab, the three distinct empty states, and a notice for every dropped filter (AC-1, AC-3, AC-5, AC-7, AC-12, AC-14, AC-15, AC-19, AC-22)
   - [x] An honest total: the newest N of M count line, and a total shown only when the set is provably whole, withheld with a reason when it is not (AC-10, AC-11, AC-21)
   - [x] Acting on what you find: the row Edit action, the validated return path, and the confirmation landing back on the filters you left (AC-16, AC-17)
-- [ ] Verify it: `/check verify search and filter your history`
+- [x] Verify it: `/check verify search and filter your history`
 
 ### 11. Export and backup
 Take everything you logged out of the app as a file, so months of typing are never trapped in here.
