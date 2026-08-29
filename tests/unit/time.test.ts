@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dayAfter,
   currentMonthRange,
   formatMonth,
   formatPlainDate,
@@ -72,6 +73,32 @@ describe("monthRange", () => {
       start: "2028-02-01",
       endExclusive: "2028-03-01",
     });
+  });
+});
+
+describe("dayAfter", () => {
+  it("gives the next day", () => {
+    expect(dayAfter("2026-08-19")).toBe("2026-08-20");
+  });
+
+  it("crosses the end of a month", () => {
+    expect(dayAfter("2026-08-31")).toBe("2026-09-01");
+  });
+
+  it("crosses the end of a year", () => {
+    expect(dayAfter("2026-12-31")).toBe("2027-01-01");
+  });
+
+  it("knows February in an ordinary year and in a leap year", () => {
+    expect(dayAfter("2026-02-28")).toBe("2026-03-01");
+    expect(dayAfter("2028-02-28")).toBe("2028-02-29");
+  });
+
+  it("refuses anything that is not a plain date", () => {
+    // It takes a value that arrived in a query string, so this is a real path
+    // rather than a defensive habit.
+    expect(() => dayAfter("banana")).toThrow();
+    expect(() => dayAfter("2026-8-19")).toThrow();
   });
 });
 

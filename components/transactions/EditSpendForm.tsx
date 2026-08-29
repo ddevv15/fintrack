@@ -46,6 +46,16 @@ type EditSpendFormProps = {
   currencySymbol: string;
   /** Today in your own zone. The newest day this entry may be moved to. */
   today: string;
+  /**
+   * Where a successful save returns to.
+   *
+   * Already validated by `resolveReturnPath()` on the server, so this component
+   * never navigates to a value straight out of a query string (spec 0009
+   * AC-18). It is a required prop rather than one defaulting to
+   * `/transactions`, because a default is exactly how an unvalidated value
+   * would later slip in unnoticed.
+   */
+  returnTo: string;
 };
 
 export function EditSpendForm({
@@ -57,6 +67,7 @@ export function EditSpendForm({
   categories,
   currencySymbol,
   today,
+  returnTo,
 }: EditSpendFormProps) {
   const categoryRef = useRef<HTMLSelectElement>(null);
 
@@ -94,7 +105,10 @@ export function EditSpendForm({
         // Left for the list, then navigate. This order matters: the list takes
         // it as it mounts, so it has to be waiting before the push starts.
         holdConfirmation(result.message ?? "");
-        router.push("/transactions");
+        // Back to the screen the edit was opened from, filters and all. Both
+        // list screens mount the same status region, so the confirmation is
+        // picked up and announced wherever this lands (spec 0009 AC-17).
+        router.push(returnTo);
       }
 
       return result;

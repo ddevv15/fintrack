@@ -20,7 +20,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 7 | This month's transactions | Release 1 | done |
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | done |
-| 10 | Search and filter your history | Release 2 | planned |
+| 10 | Search and filter your history | Release 2 | done |
 | 11 | Export and backup | Release 2 | planned |
 | 12 | Error monitoring | Release 2 | planned |
 | 13 | Budgets per category | Release 3 | planned |
@@ -150,9 +150,17 @@ Rename, add, and hide categories so the breakdown matches how you actually think
 - [x] Verify it: `/check verify categories you manage`
 
 ### 10. Search and filter your history
+spec [0009](../specs/0009-search-and-filter-your-history/index.md) · code in `app/(app)/history/`, `components/history/`, `lib/history.ts`, `lib/month.ts`, `lib/time.ts`, `lib/categories.ts`
 Chase down one specific charge, or look at a single category over a stretch of time.
 **Done when:** you can filter by category, by date range, and by text in the note, and the filters survive a page reload.
-- [ ] Build it: `/develop search and filter your history`
+- [x] Design it (spec): `/architect search and filter your history`
+- [x] Build it: `/develop search and filter your history`
+  - [x] Share one spend read: extract `readSpendRange()` in `lib/month.ts`, make the month read a thin wrapper over it, and widen the invariant scan to cover the new reader (AC-4, AC-20)
+  - [x] The pieces underneath: `dayAfter()`, an all categories helper, and the pure filter parsing, return path check, and summing, each provable without a backend (AC-2, AC-6, AC-8, AC-9, AC-13, AC-18)
+  - [x] The screen itself: `/history` with its plain form, the results list, the fifth nav tab, the three distinct empty states, and a notice for every dropped filter (AC-1, AC-3, AC-5, AC-7, AC-12, AC-14, AC-15, AC-19, AC-22)
+  - [x] An honest total: the newest N of M count line, and a total shown only when the set is provably whole, withheld with a reason when it is not (AC-10, AC-11, AC-21)
+  - [x] Acting on what you find: the row Edit action, the validated return path, and the confirmation landing back on the filters you left (AC-16, AC-17)
+- [x] Verify it: `/check verify search and filter your history`
 
 ### 11. Export and backup
 Take everything you logged out of the app as a file, so months of typing are never trapped in here.
@@ -219,9 +227,12 @@ Out of scope for the current build pass, kept so the plan stays honest.
 - **Savings goals**: put money aside toward a target and track it · needs a decision
 - **Install on your phone**: keep it on the home screen and log offline · needs a decision
 - **Written insights**: the app tells you what changed and why it matters · needs a decision
-- **How dates read where you are**: the profile carries a currency and a timezone but no locale, so every date and month name is formatted `en-US` for everyone · needs a decision · from spec 0005
+- **How dates read where you are**: the profile carries a currency and a timezone but no locale, so every date and month name is formatted `en-US` for everyone, and now the match count on `/history` too · needs a decision · from spec 0005, spec 0009
 - **Real time updates**: screens refresh themselves the moment data changes elsewhere, rather than on the next load · needs a decision
 - **Add a category while logging a spend**: create one from the Log screen picker at the moment a spend fits nothing you have, rather than going to the categories screen and losing what you typed · needs a decision · from spec 0008
+- **Something worth searching**: text search on `/history` can only find what you typed into a note. The `merchant` column exists but no screen writes it, so a habit of logging without notes makes search look broken while it is working correctly · needs a decision · from spec 0009
+- **Date range presets**: last three months, this year, and the like on `/history`, rather than typing two dates. Each preset has to be worked out in your own timezone, so each is its own small correctness surface · from spec 0009
+- **Filter by several categories at once**: group related spending, for example Coffee with Eating out. Deferred because a multi select that is genuinely correct to a keyboard and a screen reader is real work · from spec 0009
 - **A record of amendments**: editing an entry changes what past months say, and nothing records that it happened or what it was before. Worth deciding before budgets land in Release 3, since a cap you met can quietly become a cap you missed · needs a decision · from spec 0007
 
 ## Legend

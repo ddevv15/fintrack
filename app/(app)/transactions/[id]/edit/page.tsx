@@ -5,6 +5,7 @@ import { listSpendCategoryOptions } from "@/lib/categories";
 import { currencySymbol, formatAmountInput } from "@/lib/money";
 import { requireCompleteSettings } from "@/lib/settings";
 import { today } from "@/lib/time";
+import { resolveReturnPath } from "@/lib/history";
 import { loadTransactionForEdit } from "@/lib/transactions";
 
 /**
@@ -24,8 +25,18 @@ import { loadTransactionForEdit } from "@/lib/transactions";
  */
 export default async function EditTransactionPage({
   params,
+  searchParams,
 }: PageProps<"/transactions/[id]/edit">) {
   const { id } = await params;
+
+  // Reached from `/history`, this carries the filtered URL to come back to, so
+  // a correction does not throw away the search that found the entry. It is
+  // validated here on the server rather than trusted: a navigation target taken
+  // from a query string is an open redirect until something checks it, and
+  // `resolveReturnPath()` falls back to `/transactions` for anything that is
+  // not one of the two list routes (spec 0009 AC-18).
+  const { from } = await searchParams;
+  const returnTo = resolveReturnPath(Array.isArray(from) ? from[0] : from);
 
   // Safe to reach for the complete branch: the (app) layout redirects an
   // incomplete profile to /setup before this component renders. The action does
@@ -58,6 +69,7 @@ export default async function EditTransactionPage({
         note={transaction.note ?? ""}
         categories={categories}
         currencySymbol={currencySymbol(settings.currency)}
+        returnTo={returnTo}
         today={today(new Date(), settings.timezone)}
       />
     </div>

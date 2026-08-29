@@ -1,4 +1,4 @@
-import { addMonths, format, parseISO, startOfMonth } from "date-fns";
+import { addDays, addMonths, format, parseISO, startOfMonth } from "date-fns";
 
 /**
  * Which day is today, and where a month starts and ends.
@@ -66,6 +66,29 @@ export function monthRange(day: PlainDate): {
     start: format(first, "yyyy-MM-dd"),
     endExclusive: format(addMonths(first, 1), "yyyy-MM-dd"),
   };
+}
+
+/**
+ * The calendar day after a given one.
+ *
+ * Exists so a date range typed by a person can meet a query written half open.
+ * You expect a "to" of the 19th to include the 19th, while every spend read in
+ * this app compares `occurred_on < endExclusive`, the shape `monthRange()`
+ * above already uses. Converting between the two is one line, and one line is
+ * exactly the kind of thing that gets written twice and then written wrong
+ * once, so spec 0009 AC-8 puts it here rather than in the caller.
+ *
+ * Built from the same `parseISO` then `format` idiom its neighbours use, so
+ * month ends, year ends, and leap days are date-fns' problem rather than
+ * arithmetic done by hand. The format check matches `formatPlainDate()`,
+ * because unlike a month window this value arrives from a query string.
+ */
+export function dayAfter(day: PlainDate): PlainDate {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new Error(`Expected a YYYY-MM-DD plain date, received ${day}`);
+  }
+
+  return format(addDays(parseISO(day), 1), "yyyy-MM-dd");
 }
 
 /** The month you are in right now, in a given zone. */

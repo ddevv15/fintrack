@@ -1,6 +1,6 @@
 "use client";
 
-import { ChartPie, Plus, Receipt, UserRound } from "lucide-react";
+import { ChartPie, Plus, Receipt, Search, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,6 +21,7 @@ import { cn } from "@/lib/ui";
 const icons = {
   log: Plus,
   transactions: Receipt,
+  history: Search,
   breakdown: ChartPie,
   profile: UserRound,
 } as const;
