@@ -96,6 +96,12 @@ export default async function SettingsPage() {
           >
             Download your transactions as a CSV file
           </a>
+          <a
+            href="/api/export/categories"
+            className="focus-ring border-border-strong bg-surface text-fg inline-flex min-h-11 items-center rounded-sm border px-4 text-sm font-medium"
+          >
+            Download your categories as a CSV file
+          </a>
         </div>
       </Card>
 
