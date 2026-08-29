@@ -28,7 +28,7 @@ const SOMEONE_ELSES = "11111111-2222-4333-8444-555555555555";
 
 const categories: readonly SpendCategoryOption[] = [
   { id: MINE, name: "Groceries", color: "green", isHidden: false },
-  { id: HIDDEN, name: "Coffee", color: "amber", isHidden: true },
+  { id: HIDDEN, name: "Coffee", color: "orange", isHidden: true },
 ];
 
 function parse(params: Record<string, string | string[] | undefined>) {
