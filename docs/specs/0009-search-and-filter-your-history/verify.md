@@ -99,3 +99,12 @@ Nothing here is ticked yet: the feature is not built. Steps that a test should o
 - [ ] Tab to the fifth nav tab and activate it → it reaches `/history` and is announced with its name and current state → AC-22
 - [ ] Check the phone bottom bar and the desktop rail at five items → nothing overlaps, no label is clipped, and every target stays large enough to hit → AC-22
 - [ ] Run the axe check against `/history` in both themes → no violations → AC-22
+
+## What the build turned up
+
+_Added after `/develop`. These are things the acceptance criteria could not have known to ask for, found while building._
+
+- [ ] Log a note containing a literal `*`, then search `*` → note what happens. It currently behaves as a wildcard and matches everything, because PostgREST accepts `*` as an alias for `%` in an `ilike` pattern and rewrites it before SQL sees any escape. AC-4 named only `%`, `_`, and `\`, so this is an open decision rather than a bug to fix blind → AC-4, and the spec's follow up
+- [ ] Count the live regions on `/history` in the accessibility tree → there must be exactly one. The dropped filter notice is deliberately not a live region: a second polite region competes with the confirmation region and is how an announcement gets silently dropped, which is what `MonthStatus` warns about → AC-17
+- [ ] Submit the filter form with every field empty → the URL reads `?category=&from=&to=&q=`. That is a plain GET form doing what a GET form does, and the empty values parse back to no filters, so it is cosmetic. Confirm it stays cosmetic and never reads as an applied filter → AC-3
+- [ ] Search for anything at all on an account whose entries have no notes → nothing matches, and that is correct rather than broken. The seeded test data has no notes, which is worth knowing before reading an empty result as a failure → AC-5
