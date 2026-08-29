@@ -13,9 +13,12 @@ import { AppNav, type NavItem } from "./AppNav";
  * grouping that decides which layout wraps which page, so expect it to move
  * them; nothing here reads a session.
  */
+// History sits next to Month because the two are the same thing at two
+// distances: what you logged this month, and what you have logged ever.
 const navItems: readonly NavItem[] = [
   { href: "/", label: "Log", icon: "log" },
   { href: "/transactions", label: "Month", icon: "transactions" },
+  { href: "/history", label: "History", icon: "history" },
   { href: "/breakdown", label: "Breakdown", icon: "breakdown" },
   { href: "/settings", label: "Profile", icon: "profile" },
 ];

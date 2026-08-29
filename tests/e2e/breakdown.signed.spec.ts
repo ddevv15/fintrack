@@ -204,9 +204,12 @@ test.describe("where your money went", () => {
     }
 
     expect(reached[0]).toContain("Skip to content");
-    expect(reached.slice(1, 5)).toEqual([
+    // Five tabs since spec 0009 added History, which sits next to Month
+    // because the two are the same list at two distances.
+    expect(reached.slice(1, 6)).toEqual([
       "a:Log",
       "a:Month",
+      "a:History",
       "a:Breakdown",
       "a:Profile",
     ]);
