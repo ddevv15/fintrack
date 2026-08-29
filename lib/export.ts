@@ -7,6 +7,8 @@ import {
   type ExportTransactionRow,
 } from "@/lib/schema";
 import { createInsforgeServer } from "@/lib/insforge-server";
+import { formatAmountInput } from "@/lib/money";
+import { toUtcInstant } from "@/lib/time";
 
 /**
  * Taking everything you logged out of the app as a file (spec 0010).
@@ -289,4 +291,157 @@ export async function loadAllCategories(): Promise<
   }
 
   return { ok: true, rows };
+}
+
+/**
+ * The transactions file's columns, in the order AC-4 fixes.
+ *
+ * What a person reads is on the left and what a restore needs is on the right,
+ * so the file opens usefully and still holds enough to be read back one day.
+ * `user_id` is not here, and is not in the select either.
+ */
+export const TRANSACTION_HEADER = [
+  "date",
+  "category",
+  "amount",
+  "currency",
+  "note",
+  "merchant",
+  "direction",
+  "id",
+  "category_id",
+  "created_at",
+] as const;
+
+/** The categories file's columns, in the order AC-5 fixes. */
+export const CATEGORY_HEADER = [
+  "name",
+  "kind",
+  "color",
+  "hidden",
+  "id",
+  "created_at",
+] as const;
+
+/**
+ * One stored entry as the ten fields the file carries.
+ *
+ * Three of these are decisions rather than copies, and each is an acceptance
+ * criterion. The amount goes through `formatAmountInput()`, the only module
+ * allowed to convert money, which splits the digit string rather than dividing:
+ * exact every time, `12.50` on a two decimal currency and `1250` on yen (AC-6).
+ * `occurred_on` is written through untouched, because it is already the plain
+ * day you chose and carries no timezone question, while `created_at` becomes a
+ * UTC instant (AC-7). And a note or a merchant you never filled in becomes an
+ * empty field here, not the word `null` and not anywhere near the writer as
+ * `undefined` (AC-4).
+ */
+export function toTransactionCsvRow(
+  row: ExportTransactionRow,
+  currency: string,
+): readonly string[] {
+  return [
+    row.occurred_on,
+    row.categories.name,
+    formatAmountInput(row.amount_minor, currency),
+    currency,
+    row.note ?? "",
+    row.merchant ?? "",
+    row.direction,
+    row.id,
+    row.category_id,
+    toUtcInstant(row.created_at),
+  ];
+}
+
+/**
+ * One stored category as the six fields the file carries.
+ *
+ * `hidden` is written as `true` or `false` rather than as the database's own
+ * spelling, and `color` is the stored token passed through, which is what the
+ * app holds and what a reimport would need (AC-5).
+ */
+export function toCategoryCsvRow(row: ExportCategoryRow): readonly string[] {
+  return [
+    row.name,
+    row.kind,
+    row.color,
+    row.is_hidden ? "true" : "false",
+    row.id,
+    toUtcInstant(row.created_at),
+  ];
+}
+
+/**
+ * Name the file after the app, its contents, and the day you took it.
+ *
+ * The day comes from the profile's own timezone rather than the server clock,
+ * so two backups taken either side of your midnight are named the way you would
+ * name them. Several of them sort in order in a folder and none overwrites
+ * another (AC-15).
+ */
+export function exportFilename(what: string, day: string): string {
+  return `fintrack-${what}-${day}.csv`;
+}
+
+/** The one content type both files answer with. */
+const TEXT = "text/plain; charset=utf-8";
+
+/**
+ * Hand a finished document over as a download.
+ *
+ * `attachment` is what makes the browser save it rather than render it, and it
+ * is what carries the filename, since the URL itself has no extension.
+ */
+export function csvAttachment(document: string, filename: string): Response {
+  return new Response(document, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      // A backup is a point in time. Serving a stale one from a cache would be
+      // the quietest possible way to hand somebody the wrong file.
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+/**
+ * Answer an account too large to build in one response.
+ *
+ * 413 rather than 500, because nothing failed: the request is understood and
+ * refused. Plain text rather than JSON, because you reach this by clicking a
+ * link, so whatever it says lands in front of a person in a browser tab
+ * (AC-13).
+ */
+export function tooLargeResponse(matched: number, limit: number): Response {
+  const format = (count: number) =>
+    new Intl.NumberFormat("en-US").format(count);
+
+  return new Response(
+    `This export would be ${format(matched)} rows, and ${format(limit)} is the most it can build at once. ` +
+      `Nothing was written, because half a backup is worse than none. Ask for this to be raised, or export from a smaller account.`,
+    { status: 413, headers: { "Content-Type": TEXT } },
+  );
+}
+
+/**
+ * Answer a read that failed or came back short.
+ *
+ * The message is the thrown one, because these are written to be read: "came
+ * back short: 12 rows for a reported count of 13" tells you what happened, and
+ * a generic apology does not. Rule 3 of `AGENTS.md` is that an honest error
+ * beats a confident wrong figure, and here the wrong figure would be a file
+ * (AC-12).
+ */
+export function failedResponse(error: unknown): Response {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Something went wrong building your export.";
+
+  return new Response(`${message}\n\nNothing was downloaded.`, {
+    status: 500,
+    headers: { "Content-Type": TEXT },
+  });
 }
