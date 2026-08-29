@@ -167,12 +167,12 @@ spec [0010](../specs/0010-export-and-backup/index.md) · code in `app/api/export
 Take everything you logged out of the app as a file, so months of typing are never trapped in here.
 **Done when:** one action downloads every transaction and category in a format a spreadsheet opens, and the file matches what the app shows.
 - [x] Design it (spec): `/architect export and backup`
-- [ ] Build it: `/develop export and backup`
-  - [ ] Share one transaction read: generalise `readTransactionRange()` in `lib/month.ts`, make the spend read a thin wrapper over it, and move the invariant scan's direction assertion to the shape that still proves one file owns the definition (AC-17, AC-18)
-  - [ ] The pure writer: RFC 4180 escaping with the doubling before the wrapping, the byte order mark, and the line endings, all provable with no backend (AC-8, AC-9, AC-10, AC-19)
-  - [ ] A read that proves itself: keyset paging so a concurrent write cannot duplicate or drop a row, the count comparison, and a ceiling that refuses rather than truncates (AC-2, AC-11, AC-12, AC-13, AC-20)
-  - [ ] The transactions download: the ten columns, the money and date rendering, the route, the filename in your own timezone, and the Settings link (AC-1, AC-4, AC-6, AC-7, AC-14, AC-15, AC-16)
-  - [ ] The categories download: its six columns, its route, and its link, so the pair is a real backup (AC-3, AC-5)
+- [x] Build it: `/develop export and backup`
+  - [x] Share one transaction read: generalise `readTransactionRange()` in `lib/month.ts`, make the spend read a thin wrapper over it, and move the invariant scan's direction assertion to the shape that still proves one file owns the definition (AC-17, AC-18)
+  - [x] The pure writer: RFC 4180 escaping with the doubling before the wrapping, the byte order mark, and the line endings, all provable with no backend (AC-8, AC-9, AC-10, AC-19)
+  - [x] A read that proves itself: keyset paging so a concurrent write cannot duplicate or drop a row, the count comparison, and a ceiling that refuses rather than truncates (AC-2, AC-11, AC-12, AC-13, AC-20)
+  - [x] The transactions download: the ten columns, the money and date rendering, the route, the filename in your own timezone, and the Settings link (AC-1, AC-4, AC-6, AC-7, AC-14, AC-15, AC-16)
+  - [x] The categories download: its six columns, its route, and its link, so the pair is a real backup (AC-3, AC-5)
 - [ ] Verify it: `/check verify export and backup`
 
 ### 12. Error monitoring · needs a decision

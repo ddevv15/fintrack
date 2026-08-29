@@ -1,7 +1,7 @@
 # 0010. Export and backup
 
 **Date**: 2026-08-29
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
@@ -143,14 +143,14 @@ No compliance scope applies: this is a single person's own financial records, ha
 
 Sliced by the project's Skateboard approach. Slice 1 is the thinnest export you would genuinely trust, which is the transactions file with its completeness guarantee, and it ships on its own. The honesty parts are not deferred: a download that cannot prove itself whole is worse than no download, so the count check and the ceiling are in the first slice, not a later one. The extraction leads because everything stands on it.
 
-1. Generalise the read in `lib/month.ts`: add `readTransactionRange()` taking a required `what`, an optional `direction`, and an optional `after` keyset cursor, returning the same `{ rows, matched }`, then make `readSpendRange()` a thin wrapper passing `direction: "spend"`. `readSpendMonth()` keeps calling `assertCompleteMonthRead()` untouched. Extend `tests/unit/month-window.test.ts` with a fourth loader entry requiring `readTransactionRange`, and change the one whole file assertion to the two checks AC-17 fixes, satisfies **AC-17**, **AC-18**.
-2. Write the pure half of `lib/export.ts`: `escapeCsvField()` with the doubling before the wrapping, `toCsvDocument()` adding the byte order mark and the CRLF endings, and unit tests covering a comma, a quote, a line break, a leading `=`, an accented character, and an empty document, satisfies **AC-8**, **AC-9**, **AC-10**, **AC-19**.
-3. Add `loadAllTransactions()` on top of `readTransactionRange()`: read the count first and refuse above `MAX_EXPORT_ROWS` (100,000) before any paging begins, then page by keyset in reads of `EXPORT_PAGE_SIZE` (1,000) ordered `occurred_on DESC, created_at DESC, id DESC`, compare the rows received against the reported count, and throw on a mismatch or on a missing count, satisfies **AC-2**, **AC-11**, **AC-12**, **AC-13**, **AC-20**.
-4. Map a stored row to a file row: the ten columns in order, the amount through `formatAmountInput()` with the profile currency, `occurred_on` through unchanged, `created_at` as an ISO 8601 UTC instant, satisfies **AC-4**, **AC-6**, **AC-7**.
-5. Build `app/api/export/transactions/route.ts`: build the whole document, then answer with `text/csv; charset=utf-8` and the `Content-Disposition` filename from `today()` in the profile timezone. A header only document for an empty account, satisfies **AC-1**, **AC-14**, **AC-15**, **AC-16**.
-6. Add the Export section to `/settings` with a plain link, its accessible name, and a line saying what the file contains, satisfies **AC-1**.
+1. [x] Generalise the read in `lib/month.ts`: add `readTransactionRange()` taking a required `what`, an optional `direction`, and an optional `after` keyset cursor, returning the same `{ rows, matched }`, then make `readSpendRange()` a thin wrapper passing `direction: "spend"`. `readSpendMonth()` keeps calling `assertCompleteMonthRead()` untouched. Extend `tests/unit/month-window.test.ts` with a fourth loader entry requiring `readTransactionRange`, and change the one whole file assertion to the two checks AC-17 fixes, satisfies **AC-17**, **AC-18**.
+2. [x] Write the pure half of `lib/export.ts`: `escapeCsvField()` with the doubling before the wrapping, `toCsvDocument()` adding the byte order mark and the CRLF endings, and unit tests covering a comma, a quote, a line break, a leading `=`, an accented character, and an empty document, satisfies **AC-8**, **AC-9**, **AC-10**, **AC-19**.
+3. [x] Add `loadAllTransactions()` on top of `readTransactionRange()`: read the count first and refuse above `MAX_EXPORT_ROWS` (100,000) before any paging begins, then page by keyset in reads of `EXPORT_PAGE_SIZE` (1,000) ordered `occurred_on DESC, created_at DESC, id DESC`, compare the rows received against the reported count, and throw on a mismatch or on a missing count, satisfies **AC-2**, **AC-11**, **AC-12**, **AC-13**, **AC-20**.
+4. [x] Map a stored row to a file row: the ten columns in order, the amount through `formatAmountInput()` with the profile currency, `occurred_on` through unchanged, `created_at` as an ISO 8601 UTC instant, satisfies **AC-4**, **AC-6**, **AC-7**.
+5. [x] Build `app/api/export/transactions/route.ts`: build the whole document, then answer with `text/csv; charset=utf-8` and the `Content-Disposition` filename from `today()` in the profile timezone. A header only document for an empty account, satisfies **AC-1**, **AC-14**, **AC-15**, **AC-16**.
+6. [x] Add the Export section to `/settings` with a plain link, its accessible name, and a line saying what the file contains, satisfies **AC-1**.
    _Slice 1 ends here: you can take your whole ledger out of the app, and it is either complete or an honest error._
-7. Add `loadAllCategories()`, the second route, and its link, with the six columns in order and `is_hidden` written as `true` or `false`, satisfies **AC-3**, **AC-5**.
+7. [x] Add `loadAllCategories()`, the second route, and its link, with the six columns in order and `is_hidden` written as `true` or `false`, satisfies **AC-3**, **AC-5**.
 
 ## Consequences
 
