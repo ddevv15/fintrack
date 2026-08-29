@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { signOut } from "@/actions/auth";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { DeleteAccountForm } from "@/components/settings/DeleteAccountForm";
@@ -59,6 +61,20 @@ export default async function SettingsPage() {
           zones={timeZoneNames()}
           currencyIsLocked={(count ?? 0) > 0}
         />
+      </Card>
+
+      <Card>
+        <h2 className="text-fg mb-1 text-sm font-medium">Categories</h2>
+        <p className="text-fg-muted mb-4 text-sm">
+          Add, rename, and hide the categories your spends are filed under.
+        </p>
+        {/* A plain link, not a form: this reads a screen, it does not write. */}
+        <Link
+          href="/categories"
+          className="focus-ring border-border-strong bg-surface text-fg inline-flex min-h-11 items-center rounded-sm border px-4 text-sm font-medium"
+        >
+          Manage your categories
+        </Link>
       </Card>
 
       <Card>

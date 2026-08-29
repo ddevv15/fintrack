@@ -3,6 +3,7 @@ import { cache } from "react";
 import { decimalsFor } from "@/lib/currency";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { parseRow, profileSchema } from "@/lib/schema";
+import type { FormState } from "@/lib/forms";
 
 /**
  * Your currency, your timezone, and your name, read once per request.
@@ -104,4 +105,44 @@ export async function requireCompleteSettings(): Promise<
     );
   }
   return settings;
+}
+
+/**
+ * Narrow the profile inside a server action, or hand back the refusal to show.
+ *
+ * The third way of asking the same question, and the distinction between this
+ * and `requireCompleteSettings()` above is not style. A throw escapes an action
+ * and lands on the route error boundary, which replaces the whole page, loses
+ * everything that was typed, and shows a message written for whoever maintains
+ * this code rather than for the person using it. A page render can afford that,
+ * because the layout has already guaranteed completeness before it runs and
+ * there is no form to preserve; an action cannot.
+ *
+ * It is not redundant with the redirect in `app/(app)/layout.tsx`, and that is
+ * worth knowing before anyone removes it: a server action is its own entry
+ * point reached by a POST, so no layout runs for it and no redirect in one can
+ * protect it (spec 0006 AC-14, spec 0007 AC-22, spec 0008).
+ *
+ * Feature 6 found this the hard way in verification and made it one helper
+ * inside `actions/transactions.ts`. Feature 9 needs the same guard in
+ * `actions/categories.ts`, so it moved here rather than being copied: two
+ * implementations of a security guard is one more than can be kept in step.
+ */
+export async function completeProfileOrRefusal(
+  doing: string,
+): Promise<
+  | { ok: true; settings: Extract<Settings, { isComplete: true }> }
+  | { ok: false; state: FormState }
+> {
+  const settings = await getSettings();
+
+  if (settings.isComplete) return { ok: true, settings };
+
+  return {
+    ok: false,
+    state: {
+      status: "error",
+      message: `Choose your currency and time zone before ${doing}, on the account screen.`,
+    },
+  };
 }
