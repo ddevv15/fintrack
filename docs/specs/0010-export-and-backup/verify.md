@@ -103,3 +103,14 @@ Nothing here is ticked yet: the feature is not built. Steps that a test should o
 - [ ] Reach both export links by keyboard alone, in a sensible order → AC-1
 - [ ] Confirm the Export section has a heading naming it, so it is distinguishable from the other Settings sections → AC-1
 - [ ] Run the axe check against `/settings` with the Export section present, in both themes → no violations → AC-1
+
+## What the build turned up
+
+_Added after `/develop`. These are things the acceptance criteria could not have known to ask for, found while building._
+
+- [ ] Read `keysetFilter()` in `lib/month.ts` → every value is double quoted. A timestamp carries a dot and a plus, and PostgREST's `or=(...)` grammar reads both as its own punctuation, so an unquoted cursor silently matches the wrong rows rather than erroring → AC-11
+- [ ] Export an account with more rows than `EXPORT_PAGE_SIZE`, with many of them sharing one day → every row appears exactly once and the newest first order holds across the page seams. Ties on the day are the point: they are what forces the cursor down to `created_at` and then to `id`, and a single row per day would never exercise it → AC-11
+- [ ] Read `loadAllCategories()` → it does not page. It asks for up to the ceiling in one read and leans on the count comparison, so an account above PostgREST's own server limit throws rather than truncating. Correct, and worth knowing before somebody reads the missing loop as an oversight → AC-3, AC-12
+- [ ] Check both responses for `Cache-Control: no-store` → it is there. No acceptance criterion asked for it, and without it a cached response is the quietest possible way to hand somebody last week's backup as though it were today's → AC-15
+- [ ] Break the read on a scratch branch and open the route in a browser → the thrown message is what you read in the tab. These messages are user facing copy now, so check they read as sentences and reveal nothing surprising → AC-12
+- [ ] Run the axe check against `/settings` with the Export section present, in both themes → the e2e suite covers `/transactions`, `/categories`, and the gallery, but not this screen, so nothing automated is watching it → AC-1
