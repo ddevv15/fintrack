@@ -134,6 +134,54 @@ export async function listSpendCategoryOptions(
 }
 
 /**
+ * Every spend category you have, for the history filter picker.
+ *
+ * Deliberately a fourth list helper rather than a reuse of one of the three
+ * above, because none of them returns this set and the near misses are the
+ * dangerous part. `listSpendCategories()` drops hidden ones, which would make
+ * spending you have already logged unreachable the moment you tidy a label.
+ * `listSpendCategoryOptions()` reads like the right one and is not: it needs an
+ * entry's own category id and admits exactly that one hidden category, because
+ * it answers a narrower question for the edit form (spec 0007 AC-12).
+ * `listManagedCategories()` does return this set, but pays for a second read of
+ * usage counts that a dropdown has no use for.
+ *
+ * Hidden categories are included and are not marked here. The caller labels
+ * them, exactly as the edit form does, so the two pickers cannot describe the
+ * same category differently (spec 0009 AC-6).
+ *
+ * Throws rather than returning an empty list, for the reason
+ * `listSpendCategories()` gives: an empty list is a real state the screen
+ * explains, and a failed read that returned one would explain something false.
+ */
+export async function listSpendCategoryFilterOptions(): Promise<
+  readonly SpendCategoryOption[]
+> {
+  const insforge = await createInsforgeServer();
+
+  const result = await insforge.database
+    .from("categories")
+    .select("id,user_id,name,kind,color,is_hidden,created_at,updated_at")
+    .eq("kind", "spend")
+    .order("name", { ascending: true });
+
+  if (result.error) {
+    throw new Error(
+      `Could not read your categories: ${JSON.stringify(result.error)}`,
+    );
+  }
+
+  const rows = parseRows(categorySchema, "categories", result.data);
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    isHidden: row.is_hidden,
+  }));
+}
+
+/**
  * How many spend categories one account may hold.
  *
  * A rule nobody asked for, and deliberately so (spec 0008): it should never be

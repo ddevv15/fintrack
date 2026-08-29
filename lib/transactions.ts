@@ -69,17 +69,30 @@ export function summariseTransactions(
 
   const listed = rows.map((row) => {
     totalMinor += row.amount_minor;
-
-    return {
-      id: row.id,
-      amountMinor: row.amount_minor,
-      occurredOn: row.occurred_on,
-      note: row.note,
-      category: row.categories,
-    };
+    return toListedTransaction(row);
   });
 
   return { month, totalMinor, rows: listed };
+}
+
+/**
+ * One stored row as the list renders it.
+ *
+ * Pulled out so `/history` shapes a row identically (spec 0009). Two screens
+ * showing the same entry from two mappings is a smaller version of the same
+ * problem two month definitions cause: they can come to disagree about what an
+ * entry says, and nothing complains.
+ */
+export function toListedTransaction(
+  row: MonthTransactionRow,
+): MonthTransaction {
+  return {
+    id: row.id,
+    amountMinor: row.amount_minor,
+    occurredOn: row.occurred_on,
+    note: row.note,
+    category: row.categories,
+  };
 }
 
 /**

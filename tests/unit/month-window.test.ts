@@ -25,7 +25,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(import.meta.dirname, "..", "..");
 
 /**
- * The two month loaders, and the file each lives in.
+ * Every loader that reads spend rows, and the file each lives in.
  *
  * Scoped to the one function rather than the whole file on purpose. The first
  * version of this scan read the file, and it failed on
@@ -36,8 +36,25 @@ const ROOT = join(import.meta.dirname, "..", "..");
  * eventually silences.
  */
 const LOADERS = [
-  { file: "lib/breakdown.ts", loader: "loadMonthBreakdown" },
-  { file: "lib/transactions.ts", loader: "loadMonthTransactions" },
+  {
+    file: "lib/breakdown.ts",
+    loader: "loadMonthBreakdown",
+    requires: ["currentSpendMonth(", "readSpendMonth"],
+  },
+  {
+    file: "lib/transactions.ts",
+    loader: "loadMonthTransactions",
+    requires: ["currentSpendMonth(", "readSpendMonth"],
+  },
+  // Spec 0009 added the third reader. It asks for a range rather than a month,
+  // so it requires a different function, but the same rule: it may not write
+  // the filter itself. The `requires` field exists for exactly this, because
+  // the two checks below used to hardcode the month's two names for everyone.
+  {
+    file: "lib/history.ts",
+    loader: "loadHistory",
+    requires: ["readSpendRange"],
+  },
 ] as const;
 
 /**
@@ -96,12 +113,13 @@ function bodyOf(source: string, name: string): string {
 
 describe("the shared month window", () => {
   it.each(LOADERS)(
-    "$loader asks lib/month.ts for the month",
-    ({ file, loader }) => {
+    "$loader asks lib/month.ts for its rows",
+    ({ file, loader, requires }) => {
       const body = bodyOf(read(file), loader);
 
-      expect(body).toContain("currentSpendMonth(");
-      expect(body).toContain("readSpendMonth");
+      for (const required of requires) {
+        expect(body).toContain(required);
+      }
     },
   );
 

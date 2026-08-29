@@ -92,37 +92,83 @@ export function assertCompleteMonthRead(
 }
 
 /**
- * Read this month's spend rows, whichever columns the caller needs.
+ * Make a typed search term match itself, rather than acting as a pattern.
  *
- * This is the single definition the invariant rests on. The window, the spend
- * filter, the row cap, the exact count, the completeness check, and the schema
- * parse all happen here, once, so `/transactions` and `/breakdown` cannot
- * disagree about which rows make up a month. Each caller supplies only what is
- * genuinely its own: the columns it needs, the schema those columns parse
- * against, and its ordering.
+ * LIKE reads `%` as "anything" and `_` as "any one character", so without this
+ * a note search for `50%` matches every entry you have ever logged, and the
+ * count beside it truthfully reports a meaningless result. Postgres escapes
+ * both with a backslash by default, which is why the backslash itself has to be
+ * escaped too.
+ *
+ * The order is load bearing and is fixed by spec 0009 AC-4 rather than left to
+ * taste. The backslash goes first: doing it last would escape the backslashes
+ * the other two substitutions had just introduced, turning `50%` into a pattern
+ * looking for a literal backslash followed by anything at all. The surrounding
+ * wildcards that make this a contains search are added by the caller after this
+ * returns, never before, or they would be escaped here and the search would
+ * quietly become an exact match.
+ */
+export function escapeLikeTerm(term: string): string {
+  return term.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+/**
+ * Read spend rows over any stretch of time, whichever columns the caller needs.
+ *
+ * This is the single definition the invariant rests on, and it is deliberately
+ * more general than the month. Spec 0009 makes the point that the invariant was
+ * never really about months: it is that two screens must never compute the same
+ * money figure from two definitions. Filter `/history` to the current month and
+ * its total has to equal the one on `/transactions`, so history reads through
+ * here too rather than writing the same three filter lines again.
+ *
+ * Every filter except the direction is optional, and each caller supplies only
+ * what is genuinely its own: the columns it needs, the schema those columns
+ * parse against, its bounds, its ordering, and its own row limit.
  *
  * Income is excluded in the query rather than after the fact, so a row that
  * should not count never reaches a total (spec 0007, AC-5). Hidden categories
  * are deliberately not filtered: money you spent still counts whatever you
  * later did with the label.
  *
- * Throws on anything it cannot prove. There is no partial month worth showing.
+ * It reports the exact count alongside the rows rather than judging
+ * completeness itself, because the two screens answer to different standards. A
+ * month refuses to render when it cannot be proved whole; history states what
+ * it is showing out of what matched, and withholds only its total.
  */
-export async function readSpendMonth<Row>(options: {
+export async function readSpendRange<Row>(options: {
   /** Names this read in an error message, for example "This month's spending". */
   readonly what: string;
   /** The PostgREST select string, including any embedded category columns. */
   readonly select: string;
   /** Parsed per row, so a renamed column fails here rather than inside a total. */
   readonly schema: z.ZodType<Row>;
-  readonly window: MonthWindow;
+  /** Included. Omit for no lower bound. */
+  readonly start?: PlainDate;
+  /** Not included. Omit for no upper bound. */
+  readonly endExclusive?: PlainDate;
+  readonly categoryId?: string;
+  /** The raw term as typed. Escaped and wrapped here, never by the caller. */
+  readonly noteContains?: string;
+  /** A bound on rows held in memory at once. Required, so nobody forgets one. */
+  readonly limit: number;
   /** Applied in order. Ordering is the database's job, never TypeScript's. */
   readonly order?: readonly {
     readonly column: string;
     readonly ascending: boolean;
   }[];
-}): Promise<Row[]> {
-  const { what, select, schema, window, order = [] } = options;
+}): Promise<{ rows: Row[]; matched: number | undefined }> {
+  const {
+    what,
+    select,
+    schema,
+    start,
+    endExclusive,
+    categoryId,
+    noteContains,
+    limit,
+    order = [],
+  } = options;
 
   const insforge = await createInsforgeServer();
 
@@ -131,18 +177,26 @@ export async function readSpendMonth<Row>(options: {
   let query = insforge.database
     .from("transactions")
     .select(select, { count: "exact" })
-    .eq("direction", "spend")
-    .gte("occurred_on", window.start)
-    .lt("occurred_on", window.endExclusive);
+    .eq("direction", "spend");
+
+  if (start !== undefined) query = query.gte("occurred_on", start);
+  if (endExclusive !== undefined) query = query.lt("occurred_on", endExclusive);
+  if (categoryId !== undefined) query = query.eq("category_id", categoryId);
+
+  // Escaped first, wrapped second. See `escapeLikeTerm()` for why that order is
+  // the criterion rather than a preference.
+  if (noteContains !== undefined) {
+    query = query.ilike("note", `%${escapeLikeTerm(noteContains)}%`);
+  }
 
   for (const { column, ascending } of order) {
     query = query.order(column, { ascending });
   }
 
-  const result = await query.limit(MAX_MONTH_ROWS);
+  const result = await query.limit(limit);
 
-  // Rethrown, never swallowed. Both routes have an error boundary and neither
-  // screen has an honest degraded form.
+  // Rethrown, never swallowed. Every caller has an error boundary and none of
+  // them has an honest degraded form.
   if (result.error) {
     throw new Error(
       `Could not read ${what.toLowerCase()}: ${JSON.stringify(result.error)}`,
@@ -151,7 +205,44 @@ export async function readSpendMonth<Row>(options: {
 
   const rows = parseRows(schema, "transactions", result.data);
 
-  assertCompleteMonthRead(what, rows.length, result.count);
+  return { rows, matched: result.count ?? undefined };
+}
+
+/**
+ * Read this month's spend rows, and refuse to return a month you cannot prove.
+ *
+ * A thin wrapper over `readSpendRange()` since spec 0009, and thin on purpose:
+ * the month is one case of a range, so sharing the read is what stops
+ * `/transactions`, `/breakdown`, and `/history` drifting apart. What this adds
+ * on top is the month's own stricter rule, that a read which cannot be proved
+ * complete throws rather than rendering.
+ *
+ * Its behaviour is unchanged from before that extraction, which spec 0009 AC-20
+ * makes a requirement rather than a hope.
+ */
+export async function readSpendMonth<Row>(options: {
+  readonly what: string;
+  readonly select: string;
+  readonly schema: z.ZodType<Row>;
+  readonly window: MonthWindow;
+  readonly order?: readonly {
+    readonly column: string;
+    readonly ascending: boolean;
+  }[];
+}): Promise<Row[]> {
+  const { what, select, schema, window, order } = options;
+
+  const { rows, matched } = await readSpendRange<Row>({
+    what,
+    select,
+    schema,
+    start: window.start,
+    endExclusive: window.endExclusive,
+    limit: MAX_MONTH_ROWS,
+    order,
+  });
+
+  assertCompleteMonthRead(what, rows.length, matched);
 
   return rows;
 }
