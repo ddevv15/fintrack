@@ -1,7 +1,7 @@
 import type { z } from "zod";
 
 import { createInsforgeServer } from "@/lib/insforge-server";
-import { parseRows } from "@/lib/schema";
+import { parseRows, type EntryDirection } from "@/lib/schema";
 import { currentMonthRange, type PlainDate } from "@/lib/time";
 
 /**
@@ -113,36 +113,74 @@ export function escapeLikeTerm(term: string): string {
 }
 
 /**
- * Read spend rows over any stretch of time, whichever columns the caller needs.
+ * Where a keyset page stopped, as the three values that order a transaction.
+ *
+ * All three, not just the day. Two entries can share `occurred_on` and even
+ * `created_at`, and two rows with no order between them is exactly where a
+ * cursor loses one.
+ */
+export type TransactionCursor = {
+  readonly occurredOn: PlainDate;
+  readonly createdAt: string;
+  readonly id: string;
+};
+
+/**
+ * Ask for the rows that come after a cursor, in `occurred_on, created_at, id`
+ * descending order.
+ *
+ * Written as a widening chain of ties rather than a row comparison, because
+ * PostgREST has no row value syntax: strictly earlier day, or same day and
+ * strictly earlier instant, or both equal and a smaller id. Every value is
+ * double quoted, since a timestamp carries dots and a plus that the filter
+ * grammar would otherwise read as its own punctuation. The values come from
+ * rows this same read returned, never from a person, so there is no quote to
+ * escape.
+ *
+ * Exported for the test that proves the three branches, not for callers.
+ */
+export function keysetFilter(after: TransactionCursor): string {
+  return [
+    `occurred_on.lt."${after.occurredOn}"`,
+    `and(occurred_on.eq."${after.occurredOn}",created_at.lt."${after.createdAt}")`,
+    `and(occurred_on.eq."${after.occurredOn}",created_at.eq."${after.createdAt}",id.lt."${after.id}")`,
+  ].join(",");
+}
+
+/**
+ * Read transaction rows over any stretch of time, whichever columns a caller
+ * needs, in whichever direction it asks for.
  *
  * This is the single definition the invariant rests on, and it is deliberately
- * more general than the month. Spec 0009 makes the point that the invariant was
+ * more general than the month. Spec 0009 made the point that the invariant was
  * never really about months: it is that two screens must never compute the same
- * money figure from two definitions. Filter `/history` to the current month and
- * its total has to equal the one on `/transactions`, so history reads through
- * here too rather than writing the same three filter lines again.
+ * money figure from two definitions. Spec 0010 widened it once more, because
+ * the export claims its file matches what the app shows, which is the same
+ * agreement claim with a longer half life.
  *
- * Every filter except the direction is optional, and each caller supplies only
- * what is genuinely its own: the columns it needs, the schema those columns
- * parse against, its bounds, its ordering, and its own row limit.
+ * Every filter is optional, including the direction, and each caller supplies
+ * only what is genuinely its own: the columns it needs, the schema those
+ * columns parse against, its bounds, its ordering, and its own row limit. A
+ * caller that omits `direction` reads every row in the table, which is what a
+ * backup has to do and what no screen does.
  *
- * Income is excluded in the query rather than after the fact, so a row that
- * should not count never reaches a total (spec 0007, AC-5). Hidden categories
- * are deliberately not filtered: money you spent still counts whatever you
- * later did with the label.
+ * Hidden categories are deliberately not filtered: money you spent still counts
+ * whatever you later did with the label.
  *
  * It reports the exact count alongside the rows rather than judging
- * completeness itself, because the two screens answer to different standards. A
+ * completeness itself, because its callers answer to different standards. A
  * month refuses to render when it cannot be proved whole; history states what
- * it is showing out of what matched, and withholds only its total.
+ * it is showing out of what matched; the export refuses to hand over a file.
  */
-export async function readSpendRange<Row>(options: {
+export async function readTransactionRange<Row>(options: {
   /** Names this read in an error message, for example "This month's spending". */
   readonly what: string;
   /** The PostgREST select string, including any embedded category columns. */
   readonly select: string;
   /** Parsed per row, so a renamed column fails here rather than inside a total. */
   readonly schema: z.ZodType<Row>;
+  /** Omit to read every direction, which only a backup should do. */
+  readonly direction?: EntryDirection;
   /** Included. Omit for no lower bound. */
   readonly start?: PlainDate;
   /** Not included. Omit for no upper bound. */
@@ -150,6 +188,8 @@ export async function readSpendRange<Row>(options: {
   readonly categoryId?: string;
   /** The raw term as typed. Escaped and wrapped here, never by the caller. */
   readonly noteContains?: string;
+  /** Where the previous page stopped. Requires the matching descending order. */
+  readonly after?: TransactionCursor;
   /** A bound on rows held in memory at once. Required, so nobody forgets one. */
   readonly limit: number;
   /** Applied in order. Ordering is the database's job, never TypeScript's. */
@@ -162,10 +202,12 @@ export async function readSpendRange<Row>(options: {
     what,
     select,
     schema,
+    direction,
     start,
     endExclusive,
     categoryId,
     noteContains,
+    after,
     limit,
     order = [],
   } = options;
@@ -176,9 +218,9 @@ export async function readSpendRange<Row>(options: {
   // keyed to `auth.uid()`, not a filter written here (spec 0007, AC-20).
   let query = insforge.database
     .from("transactions")
-    .select(select, { count: "exact" })
-    .eq("direction", "spend");
+    .select(select, { count: "exact" });
 
+  if (direction !== undefined) query = query.eq("direction", direction);
   if (start !== undefined) query = query.gte("occurred_on", start);
   if (endExclusive !== undefined) query = query.lt("occurred_on", endExclusive);
   if (categoryId !== undefined) query = query.eq("category_id", categoryId);
@@ -188,6 +230,8 @@ export async function readSpendRange<Row>(options: {
   if (noteContains !== undefined) {
     query = query.ilike("note", `%${escapeLikeTerm(noteContains)}%`);
   }
+
+  if (after !== undefined) query = query.or(keysetFilter(after));
 
   for (const { column, ascending } of order) {
     query = query.order(column, { ascending });
@@ -206,6 +250,31 @@ export async function readSpendRange<Row>(options: {
   const rows = parseRows(schema, "transactions", result.data);
 
   return { rows, matched: result.count ?? undefined };
+}
+
+/**
+ * Read spend rows over any stretch of time.
+ *
+ * A thin wrapper over `readTransactionRange()` since spec 0010, and the one
+ * place in the app that says a spend read means `direction: "spend"`. Every
+ * screen goes through here; only the export, which is a backup and must not
+ * filter, goes to the general read directly.
+ */
+export async function readSpendRange<Row>(options: {
+  readonly what: string;
+  readonly select: string;
+  readonly schema: z.ZodType<Row>;
+  readonly start?: PlainDate;
+  readonly endExclusive?: PlainDate;
+  readonly categoryId?: string;
+  readonly noteContains?: string;
+  readonly limit: number;
+  readonly order?: readonly {
+    readonly column: string;
+    readonly ascending: boolean;
+  }[];
+}): Promise<{ rows: Row[]; matched: number | undefined }> {
+  return readTransactionRange<Row>({ ...options, direction: "spend" });
 }
 
 /**

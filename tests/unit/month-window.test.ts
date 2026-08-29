@@ -145,7 +145,17 @@ describe("the shared month window", () => {
     // filter lives, which makes the two checks above meaningless.
     const source = read("lib/month.ts");
 
-    expect(source).toMatch(/\.eq\(\s*["']direction["']\s*,\s*["']spend["']/);
+    // The direction check is two assertions rather than one since spec 0010,
+    // and the change is in AC-17 rather than made in passing here. The export
+    // is a backup and must not filter by direction, so the filter became a
+    // parameter, which deletes the literal `.eq("direction", "spend")` this
+    // used to match. What has to stay true is unchanged: one file applies the
+    // filter, and one file decides that a spend read means "spend". So the
+    // check became those two facts. A guard may change shape when the thing it
+    // guards changes shape; it may never be loosened to let a refactor pass,
+    // which is why the pair is narrower than the single pattern it replaced.
+    expect(source).toMatch(/\.eq\(\s*["']direction["']\s*,\s*direction\s*\)/);
+    expect(source).toMatch(/direction:\s*["']spend["']/);
     expect(source).toMatch(/\.gte\(\s*["']occurred_on["']/);
     expect(source).toMatch(/\.lt\(\s*["']occurred_on["']/);
   });
