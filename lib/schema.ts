@@ -304,6 +304,50 @@ export const monthTransactionRowSchema = z.object({
 export type MonthTransactionRow = z.infer<typeof monthTransactionRowSchema>;
 
 /**
+ * One stored entry as the export writes it (spec 0010).
+ *
+ * Its own schema rather than `transactionSchema` for one reason that matters:
+ * `user_id` is absent. AC-16 says no query in this feature names one and the
+ * column is in neither file, and the way to guarantee that is to never ask for
+ * it. The category comes as a name only, since the file carries the name a
+ * person reads and the `category_id` a restore needs, and nothing else about
+ * the category belongs in a transaction row.
+ *
+ * `created_at` is here because the file carries it and because the keyset
+ * cursor is built from it; without it the paging has no second sort key.
+ */
+export const exportTransactionRowSchema = z.object({
+  id: z.uuid(),
+  category_id: z.uuid(),
+  direction: entryDirectionSchema,
+  amount_minor: minorUnitsSchema,
+  occurred_on: plainDateSchema,
+  merchant: nullableToUndefined(z.string().max(200)),
+  note: nullableToUndefined(z.string().max(500)),
+  created_at: timestampSchema,
+  categories: z.object({ name: z.string().min(1).max(60) }),
+});
+export type ExportTransactionRow = z.infer<typeof exportTransactionRowSchema>;
+
+/**
+ * One stored category as the export writes it (spec 0010).
+ *
+ * Narrower than `categorySchema` for the same reason as above: that one
+ * requires `user_id`, and this feature does not ask for it. `updated_at` is
+ * left out too, because a backup records when a thing was made, not when it was
+ * last touched.
+ */
+export const exportCategoryRowSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1).max(60),
+  kind: entryDirectionSchema,
+  color: categoryColorSchema,
+  is_hidden: z.boolean(),
+  created_at: timestampSchema,
+});
+export type ExportCategoryRow = z.infer<typeof exportCategoryRowSchema>;
+
+/**
  * The one entry the edit screen loads, with its category.
  *
  * Separate from `monthTransactionRowSchema` because it needs one column that

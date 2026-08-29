@@ -55,6 +55,15 @@ const LOADERS = [
     loader: "loadHistory",
     requires: ["readSpendRange"],
   },
+  // Spec 0010 added the fourth. It is a backup, so it reads every direction
+  // rather than filtering to spend, which is why it requires the general
+  // function underneath rather than the spend wrapper. The rule it answers to
+  // is the same one: it may not write the read itself.
+  {
+    file: "lib/export.ts",
+    loader: "loadAllTransactions",
+    requires: ["readTransactionRange"],
+  },
 ] as const;
 
 /**
