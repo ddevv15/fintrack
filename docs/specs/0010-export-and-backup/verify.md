@@ -2,7 +2,7 @@
 
 _Steps derived from spec 0010 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
-Ticked by `/check verify` on 2026-08-30 against the real app and the real backend. Seven steps are left unticked; the report says why. Steps that a test should own once it exists are marked **(auto target)** with the suggested test name.
+Ticked by `/check verify` on 2026-08-30 against the real app and the real backend, then extended by `/debug` the same day. Eight steps are left unticked; the report says why. Steps that a test should own once it exists are marked **(auto target)** with the suggested test name.
 
 ## The extraction, before anything else
 
@@ -114,3 +114,12 @@ _Added after `/develop`. These are things the acceptance criteria could not have
 - [x] Check both responses for `Cache-Control: no-store` → it is there. No acceptance criterion asked for it, and without it a cached response is the quietest possible way to hand somebody last week's backup as though it were today's → AC-15
 - [x] Break the read on a scratch branch and open the route in a browser → the thrown message is what you read in the tab. These messages are user facing copy now, so check they read as sentences and reveal nothing surprising → AC-12
 - [x] Run the axe check against `/settings` with the Export section present, in both themes → the e2e suite covers `/transactions`, `/categories`, and the gallery, but not this screen, so nothing automated is watching it → AC-1
+
+## What debugging turned up
+
+_Added after `/debug` on 2026-08-30, which found the count mismatch refusal naming the wrong failure. These are the checks that would have caught it, and the reason the ticked concurrent insert step above did not._
+
+- [x] Read the completeness refusal → it has two branches, because the comparison it guards has two. A set shorter than the count and a set longer than it are different failures and say so; a long set is never announced as "missing entries", which would send somebody hunting for a row that was never lost → AC-11, AC-12 (auto target: `export-completeness.test.ts`)
+- [x] Read why long is reachable at all → the export takes its count in a separate query before paging begins, so a row written mid export is in the pages and not in the count. That separation is deliberate, it is what lets an oversized account be refused for one row, and it is also what `assertCompleteMonthRead()` does not have: there the count and the rows come from one response, so a month read can only ever be short → AC-11
+- [ ] Lower `EXPORT_PAGE_SIZE` on a scratch branch so a page seam is reachable by hand, then save a **backdated** entry from a second session between two pages → the export refuses with the long message naming both counts, and nothing reaches the downloads folder → AC-11, AC-12
+- [x] Re-read the ticked concurrent insert step under "Proving it is whole" → it passes with an entry dated today, and cannot fail. Today sorts above the keyset cursor in a descending read, so a later page never sees it and the count race is never exercised. Only a backdated entry lands below the cursor. Worth knowing before somebody treats that green tick as covering this → AC-11
