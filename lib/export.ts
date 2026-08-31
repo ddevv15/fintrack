@@ -150,6 +150,40 @@ export type ExportLoad<Row> =
     };
 
 /**
+ * Refuse a set whose size disagrees with the count the database reported.
+ *
+ * Two directions, because the comparison has always had two and the message
+ * used to have one. Short is a row that never arrived. Long is the opposite
+ * failure and it is reachable: the count is its own query taken before paging
+ * begins, so an entry saved on another device while the export is reading is
+ * not in `matched`, and if it is backdated it sorts below the cursor and a
+ * later page hands it over. Calling that "missing entries" sends somebody
+ * looking for a row that is not lost, and hides the race that actually
+ * happened.
+ *
+ * Both refuse, and that is not symmetry for its own sake. A long set is not
+ * proof of a whole one, it is proof the table moved mid read, so the rows in
+ * memory are a mix of two moments rather than a snapshot of either.
+ */
+function assertExportCountMatches(
+  what: string,
+  received: number,
+  reported: number,
+): void {
+  if (received === reported) return;
+
+  if (received < reported) {
+    throw new Error(
+      `${what} came back short: ${received} rows for a reported count of ${reported}. Refusing to hand over a backup that is missing entries.`,
+    );
+  }
+
+  throw new Error(
+    `${what} came back long: ${received} rows for a reported count of ${reported}. Something was written while the export was reading, so these rows are not one moment in time. Refusing to hand over a backup that cannot be proved to be a snapshot. Try again.`,
+  );
+}
+
+/**
  * Read every transaction on the account, proved complete or not handed over.
  *
  * Three things happen in order, and the order is the guarantee.
@@ -230,11 +264,7 @@ export async function loadAllTransactions(): Promise<
     };
   }
 
-  if (rows.length !== matched) {
-    throw new Error(
-      `${what} came back short: ${rows.length} rows for a reported count of ${matched}. Refusing to hand over a backup that is missing entries.`,
-    );
-  }
+  assertExportCountMatches(what, rows.length, matched);
 
   return { ok: true, rows };
 }
@@ -284,11 +314,7 @@ export async function loadAllCategories(): Promise<
 
   const rows = parseRows(exportCategoryRowSchema, "categories", result.data);
 
-  if (rows.length !== matched) {
-    throw new Error(
-      `${what} came back short: ${rows.length} rows for a reported count of ${matched}. Refusing to hand over a backup that is missing entries.`,
-    );
-  }
+  assertExportCountMatches(what, rows.length, matched);
 
   return { ok: true, rows };
 }
