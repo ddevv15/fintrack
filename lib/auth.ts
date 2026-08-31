@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { redirect } from "next/navigation";
 
 import { createInsforgeServer } from "@/lib/insforge-server";
@@ -35,7 +36,35 @@ export async function currentUser(): Promise<SignedInUser | undefined> {
 
   if (error || !data?.user?.id) return undefined;
 
+  identifyForMonitoring(data.user.id);
+
   return { id: data.user.id, email: data.user.email ?? "" };
+}
+
+/**
+ * Tell error monitoring which account this request belongs to (spec 0011 AC-8).
+ *
+ * The id and nothing else. The email is right there on the same record and is
+ * deliberately left behind: an app with one real user gains nothing from
+ * sending an address to a third party, and the id already answers the only
+ * question worth asking, which is whether a report came from your real account
+ * or one of the test ones.
+ *
+ * Here rather than in the instrumentation files because this is the one place
+ * that knows who is signed in. `onRequestError` runs after the fact and has a
+ * request, not a session. Setting it during the request means the id is already
+ * on the scope by the time anything throws.
+ *
+ * Wrapped and silent: identifying somebody for a report that may never be sent
+ * is not a reason to fail a page. It does nothing at all when monitoring is off,
+ * because `Sentry.init` was never called.
+ */
+function identifyForMonitoring(id: string): void {
+  try {
+    Sentry.setUser({ id });
+  } catch {
+    // Deliberately swallowed. See the note above.
+  }
 }
 
 /**
