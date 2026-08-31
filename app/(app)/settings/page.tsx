@@ -78,6 +78,34 @@ export default async function SettingsPage() {
       </Card>
 
       <Card>
+        <h2 className="text-fg mb-1 text-sm font-medium">Export and backup</h2>
+        <p className="text-fg-muted mb-4 text-sm">
+          Take everything you have logged out of the app, as a file a
+          spreadsheet opens. Nothing is narrowed and nothing is left out, and
+          the file is either complete or you get told why not.
+        </p>
+        {/* Plain anchors, not `next/link`. These are downloads, not screens:
+            client navigation has nothing to render and would swallow the
+            response the browser is supposed to save. Each one names the file it
+            fetches, so its accessible name says what you are about to get
+            rather than just "download" (spec 0010, AC-1). */}
+        <div className="flex flex-col items-start gap-2">
+          <a
+            href="/api/export/transactions"
+            className="focus-ring border-border-strong bg-surface text-fg inline-flex min-h-11 items-center rounded-sm border px-4 text-sm font-medium"
+          >
+            Download your transactions as a CSV file
+          </a>
+          <a
+            href="/api/export/categories"
+            className="focus-ring border-border-strong bg-surface text-fg inline-flex min-h-11 items-center rounded-sm border px-4 text-sm font-medium"
+          >
+            Download your categories as a CSV file
+          </a>
+        </div>
+      </Card>
+
+      <Card>
         <h2 className="text-fg mb-1 text-sm font-medium">This browser</h2>
         <p className="text-fg-muted mb-4 text-sm">
           Signing out ends this session here. Any other browser you are signed

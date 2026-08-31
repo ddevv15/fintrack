@@ -17,6 +17,12 @@ _Written 2026-08-27, at the end of Release 1. Counts: 43 open steps across six
 specs, plus the four listen through items in
 [accessibility-pass.md](accessibility-pass.md)._
 
+_Spec 0010 shipped after this file was written and has not been rolled in. One
+of its open steps is indexed below, in group 6, because it belongs to a group
+that already exists. The other seven stay in
+[its verify.md](specs/0010-export-and-backup/verify.md) until somebody does the
+merge properly._
+
 ## The short version
 
 | Blocked by | Steps | What it would take |
@@ -26,7 +32,7 @@ specs, plus the four listen through items in
 | A real test mailbox | 7 | A mailbox the tests can read |
 | Blocking Arcjet at the network level | 3 | A proxy or firewall rule |
 | A real date arriving | 5 | The last day of a month, and a week passing |
-| A deliberate source change to force a failure | 3 | A scratch branch |
+| A deliberate source change to force a failure | 4 | A scratch branch |
 | Test harness work | 2 | See below, both are real gaps |
 | Your go ahead, because they have side effects | 2 | A yes |
 
@@ -149,10 +155,20 @@ scratch branch and then thrown away.
 - Lower `MAX_MONTH_ROWS` in `lib/month.ts` below the row count, the error boundary names the shortfall and shows no total ([spec 0007](specs/0007-this-months-transactions/verify.md))
 - Rename `amount_minor` in a scratch schema, the screen fails loudly naming the table rather than showing a wrong number ([spec 0005](specs/0005-where-your-money-went/verify.md))
 - Change a starting category in the seed migration, a new account gets the new value and existing accounts are untouched ([spec 0002](specs/0002-data-model/verify.md))
+- Lower `EXPORT_PAGE_SIZE` in `lib/export.ts` so a page seam is reachable by hand, then save a backdated entry from a second session between two pages, the export refuses with the long message and no file downloads ([spec 0010](specs/0010-export-and-backup/verify.md))
 
 The guards themselves are proved: `assertCompleteMonthRead` was exercised
-directly and refuses both a short read and a missing count. What is unproved is
-the path from the throw to the error boundary.
+directly and refuses both a short read and a missing count, and the export's own
+guard is covered in both directions by `tests/unit/export-completeness.test.ts`.
+What is unproved is the path from the throw to the error boundary.
+
+The export step is new, and it is here because the check that was supposed to
+cover it could not. "Insert a transaction from a second session while an export
+is paging" is ticked in spec 0010 and passes, but an entry dated today sorts
+above the keyset cursor in a descending read, so a later page never sees it and
+the count race is never touched. Only a backdated entry lands below the cursor,
+and lowering the page size is what makes the seam reachable without logging a
+thousand rows first.
 
 ## 7. Test harness work, and both are real gaps
 

@@ -21,7 +21,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 8 | Where your money went | Release 1 | done |
 | 9 | Categories you manage | Release 2 | done |
 | 10 | Search and filter your history | Release 2 | done |
-| 11 | Export and backup | Release 2 | planned |
+| 11 | Export and backup | Release 2 | done |
 | 12 | Error monitoring | Release 2 | planned |
 | 13 | Budgets per category | Release 3 | planned |
 | 14 | Income and money coming in | Release 4 | planned |
@@ -163,9 +163,17 @@ Chase down one specific charge, or look at a single category over a stretch of t
 - [x] Verify it: `/check verify search and filter your history`
 
 ### 11. Export and backup
+spec [0010](../specs/0010-export-and-backup/index.md) · code in `app/api/export/`, `lib/export.ts`, `lib/month.ts`, `app/(app)/settings/`
 Take everything you logged out of the app as a file, so months of typing are never trapped in here.
 **Done when:** one action downloads every transaction and category in a format a spreadsheet opens, and the file matches what the app shows.
-- [ ] Build it: `/develop export and backup`
+- [x] Design it (spec): `/architect export and backup`
+- [x] Build it: `/develop export and backup`
+  - [x] Share one transaction read: generalise `readTransactionRange()` in `lib/month.ts`, make the spend read a thin wrapper over it, and move the invariant scan's direction assertion to the shape that still proves one file owns the definition (AC-17, AC-18)
+  - [x] The pure writer: RFC 4180 escaping with the doubling before the wrapping, the byte order mark, and the line endings, all provable with no backend (AC-8, AC-9, AC-10, AC-19)
+  - [x] A read that proves itself: keyset paging so a concurrent write cannot duplicate or drop a row, the count comparison, and a ceiling that refuses rather than truncates (AC-2, AC-11, AC-12, AC-13, AC-20)
+  - [x] The transactions download: the ten columns, the money and date rendering, the route, the filename in your own timezone, and the Settings link (AC-1, AC-4, AC-6, AC-7, AC-14, AC-15, AC-16)
+  - [x] The categories download: its six columns, its route, and its link, so the pair is a real backup (AC-3, AC-5)
+- [x] Verify it: `/check verify export and backup`
 
 ### 12. Error monitoring · needs a decision
 Find out when something broke instead of silently losing an entry.
@@ -232,6 +240,9 @@ Out of scope for the current build pass, kept so the plan stays honest.
 - **Add a category while logging a spend**: create one from the Log screen picker at the moment a spend fits nothing you have, rather than going to the categories screen and losing what you typed · needs a decision · from spec 0008
 - **Something worth searching**: text search on `/history` can only find what you typed into a note. The `merchant` column exists but no screen writes it, so a habit of logging without notes makes search look broken while it is working correctly · needs a decision · from spec 0009
 - **Date range presets**: last three months, this year, and the like on `/history`, rather than typing two dates. Each preset has to be worked out in your own timezone, so each is its own small correctness surface · from spec 0009
+- **Import a backup back in**: read the exported files back into the app, which is what turns an export into a real backup. The id columns exist for it, but the merge rules, the duplicate handling, and what happens to a category that no longer exists are all undecided · needs a decision · from spec 0010
+- **Tell you when you last backed up**: a line on Settings saying when you last exported. Declined inside spec 0010 because it would make a read path write, and kept here because it is the kind of nudge that makes a backup habit stick · from spec 0010
+- **Rename `lib/month.ts`**: it now holds the general transaction read that every screen and the export share, and its name has outgrown it. Renaming touches every import, so it wants its own small change rather than riding along with a feature · from spec 0009, spec 0010
 - **Filter by several categories at once**: group related spending, for example Coffee with Eating out. Deferred because a multi select that is genuinely correct to a keyboard and a screen reader is real work · from spec 0009
 - **A record of amendments**: editing an entry changes what past months say, and nothing records that it happened or what it was before. Worth deciding before budgets land in Release 3, since a cap you met can quietly become a cap you missed · needs a decision · from spec 0007
 

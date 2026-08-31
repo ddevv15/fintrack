@@ -218,3 +218,33 @@ export function timeZoneNames(): readonly string[] {
   );
   return [...new Set(corrected)].sort();
 }
+
+/**
+ * Write a stored timestamp as the one ISO 8601 instant a machine reads back.
+ *
+ * The exact shape is pinned by spec 0010 AC-7 rather than left to taste,
+ * because two implementations can each honestly call their output ISO 8601 and
+ * still disagree: `2026-01-01T00:00:00Z`, `2026-01-01T00:00:00.000Z`, and
+ * `2026-01-01T00:00:00+00:00` are all valid and all different. The export
+ * writes the middle one, which is what `toISOString()` emits, so a file taken
+ * today and a file taken next year are comparable.
+ *
+ * It converts to UTC rather than into the profile's own timezone, which is the
+ * one place in this app that deliberately does not use the person's zone. The
+ * columns a person chose (`occurred_on`) are theirs and stay theirs; this one
+ * is a machine fact and its job is to restore to the same instant.
+ *
+ * Throws on something that is not a timestamp, as its neighbours do, rather
+ * than returning the string `Invalid Date` into the middle of a backup.
+ */
+export function toUtcInstant(timestamp: string): string {
+  const at = new Date(timestamp);
+
+  if (Number.isNaN(at.getTime())) {
+    throw new Error(
+      `Expected a timestamp, received ${JSON.stringify(timestamp)}`,
+    );
+  }
+
+  return at.toISOString();
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dayAfter,
+  toUtcInstant,
   currentMonthRange,
   formatMonth,
   formatPlainDate,
@@ -236,5 +237,31 @@ describe("formatMonth", () => {
   it("refuses anything that is not a plain calendar day", () => {
     expect(() => formatMonth("2026-08")).toThrow(/plain date/);
     expect(() => formatMonth("August 2026")).toThrow(/plain date/);
+  });
+});
+
+describe("toUtcInstant", () => {
+  it("writes the exact form spec 0010 AC-7 pins down", () => {
+    // Milliseconds and a trailing Z, always, so two exports are comparable.
+    expect(toUtcInstant("2026-08-29T14:32:05.123+00:00")).toBe(
+      "2026-08-29T14:32:05.123Z",
+    );
+  });
+
+  it("keeps milliseconds even when they are zero", () => {
+    expect(toUtcInstant("2026-01-01T00:00:00+00:00")).toBe(
+      "2026-01-01T00:00:00.000Z",
+    );
+  });
+
+  it("converts an offset to UTC rather than keeping it", () => {
+    expect(toUtcInstant("2026-08-29T10:32:05.000-04:00")).toBe(
+      "2026-08-29T14:32:05.000Z",
+    );
+  });
+
+  it("refuses something that is not a timestamp", () => {
+    expect(() => toUtcInstant("banana")).toThrow();
+    expect(() => toUtcInstant("")).toThrow();
   });
 });
