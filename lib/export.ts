@@ -1,3 +1,4 @@
+import { refusal } from "@/lib/errors";
 import { readTransactionRange, type TransactionCursor } from "@/lib/month";
 import {
   parseRows,
@@ -173,12 +174,14 @@ function assertExportCountMatches(
   if (received === reported) return;
 
   if (received < reported) {
-    throw new Error(
+    throw refusal(
+      "count-mismatch",
       `${what} came back short: ${received} rows for a reported count of ${reported}. Refusing to hand over a backup that is missing entries.`,
     );
   }
 
-  throw new Error(
+  throw refusal(
+    "count-mismatch",
     `${what} came back long: ${received} rows for a reported count of ${reported}. Something was written while the export was reading, so these rows are not one moment in time. Refusing to hand over a backup that cannot be proved to be a snapshot. Try again.`,
   );
 }
@@ -227,7 +230,8 @@ export async function loadAllTransactions(): Promise<
 
   const matched = counted.matched;
   if (typeof matched !== "number") {
-    throw new Error(
+    throw refusal(
+      "missing-count",
       `${what} came back without a row count, so there is no way to prove the file would hold everything. Refusing to hand over a backup that might be short.`,
     );
   }
@@ -303,7 +307,8 @@ export async function loadAllCategories(): Promise<
 
   const matched = result.count ?? undefined;
   if (typeof matched !== "number") {
-    throw new Error(
+    throw refusal(
+      "missing-count",
       `${what} came back without a row count, so there is no way to prove the file would hold everything. Refusing to hand over a backup that might be short.`,
     );
   }

@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import { refusal } from "@/lib/errors";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { parseRows, type EntryDirection } from "@/lib/schema";
 import { currentMonthRange, type PlainDate } from "@/lib/time";
@@ -78,13 +79,15 @@ export function assertCompleteMonthRead(
   reported: number | null | undefined,
 ): void {
   if (typeof reported !== "number") {
-    throw new Error(
+    throw refusal(
+      "missing-count",
       `${what} came back without a row count, so there is no way to prove nothing was dropped. Refusing to show a total that might be short.`,
     );
   }
 
   if (received !== reported) {
-    throw new Error(
+    throw refusal(
+      "count-mismatch",
       `${what} came back short: ${received} rows for a reported count of ${reported}. ` +
         `Refusing to show a total that is missing entries. If the count is above ${MAX_MONTH_ROWS}, that limit is what truncated it.`,
     );
