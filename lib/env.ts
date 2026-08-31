@@ -5,11 +5,52 @@ import { z } from "zod";
  *
  * Spec 0001 listed four values. Spec 0003 added the fifth, UI_GALLERY, the way
  * that spec said later features should add them. Anything a later feature needs
- * (ARCJET_KEY, PostHog keys) gets added when that feature is built, not before.
+ * gets added when that feature is built, not before: ARCJET_KEY arrived with
+ * spec 0004, the four Sentry values with spec 0011.
+ *
+ * Spec 0001 expected those last four to be PostHog keys. Spec 0011 weighed that
+ * choice, which 0001 had pencilled in without deliberating, and chose Sentry
+ * instead. Everything else in 0001 stands.
  */
-const envSchema = z.object({
+/**
+ * The values that reach the browser, split out so they can be read there.
+ *
+ * Spec 0011 forced this split. Error monitoring runs on both sides, and the
+ * browser half needs the DSN before hydration. It cannot call `env()`, because
+ * that validates the whole schema and most of it is server only: APP_URL and
+ * the rest are simply absent in a bundle, so `env()` in the browser throws on
+ * values the browser was never meant to have.
+ *
+ * Splitting the schema rather than reading `process.env` in a client file keeps
+ * the rule in `AGENTS.md` intact: every variable is still declared and
+ * validated here, in one place, and nothing else reaches for `process.env`.
+ */
+const publicEnvSchema = z.object({
   NEXT_PUBLIC_INSFORGE_URL: z.url("must be the full InsForge project URL"),
   NEXT_PUBLIC_INSFORGE_ANON_KEY: z.string().min(1, "must not be empty"),
+  // Spec 0011 AC-13: where error reports are sent. Optional for exactly the
+  // reason ARCJET_KEY below is optional, and the reasoning is worth repeating
+  // rather than cross referencing: the whole feature is built to fail open, so
+  // no DSN means no reporting and a warning in the log. Requiring it would let
+  // a monitoring misconfiguration take down a money app, which is the precise
+  // failure monitoring exists to prevent.
+  //
+  // NEXT_PUBLIC_ because the browser half needs it in the bundle. That is safe:
+  // a DSN is a write only address. It accepts events, it cannot read them back.
+  NEXT_PUBLIC_SENTRY_DSN: z
+    .string()
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
+  // Set by Vercel, not by you, and public so the browser half can read them
+  // too. Optional because they are genuinely absent on a local machine: this
+  // project's onboarding copies `.env.example`, it does not run `vercel env
+  // pull`. That absence is load bearing rather than incidental, and spec 0011
+  // AC-9 turns on it. See `shouldReport()` in `lib/monitoring.ts`.
+  NEXT_PUBLIC_VERCEL_ENV: z.string().optional(),
+  NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: z.string().optional(),
+});
+
+const envSchema = publicEnvSchema.extend({
   // Where this app answers, used to build the one absolute URL the app needs:
   // the `redirectTo` Google sends you back to. It cannot be derived from the
   // request, because the value has to match what the InsForge dashboard allows,
@@ -55,6 +96,32 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => (value === "" ? undefined : value)),
+  // Spec 0011 AC-10: build time only, authorising the source map upload so a
+  // stack trace names a real file instead of a position in a minified bundle.
+  // Deliberately NOT NEXT_PUBLIC_, unlike the DSN: this one grants write access
+  // to the Sentry project, so it must never reach a bundle.
+  SENTRY_AUTH_TOKEN: z
+    .string()
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
+  // Which Sentry project the maps upload to. Optional with the token above:
+  // all three are absent in a normal local checkout, and their absence just
+  // means no upload, never a failed build.
+  SENTRY_ORG: z
+    .string()
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
+  SENTRY_PROJECT: z
+    .string()
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
+  // The server side twins of the two NEXT_PUBLIC_VERCEL_ values above. Vercel
+  // sets these unconditionally, while the public ones depend on the project
+  // having system environment variables exposed, so these are the fallback that
+  // keeps server reporting working either way. Both optional: neither exists on
+  // a local machine, and spec 0011 AC-9 requires that absence to mean off.
+  VERCEL_ENV: z.string().optional(),
+  VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   // Spec 0003 AC-17: the component gallery renders only when this is set, and
   // this is the one place in the codebase that reads it. Unset means false,
   // which is what production runs. A value that is not one of these four is a
@@ -79,20 +146,36 @@ const envSchema = z.object({
 });
 
 export type Env = z.infer<typeof envSchema>;
+export type PublicEnv = z.infer<typeof publicEnvSchema>;
 
 /**
  * Read literally, never as a loop over process.env. Next.js only substitutes
  * NEXT_PUBLIC_* values into a bundle where it can see the property access in
  * the source, so a dynamic lookup would come back undefined in the browser.
  */
-function readRawEnv() {
+function readRawPublicEnv() {
   return {
     NEXT_PUBLIC_INSFORGE_URL: process.env.NEXT_PUBLIC_INSFORGE_URL,
     NEXT_PUBLIC_INSFORGE_ANON_KEY: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_VERCEL_ENV: process.env.NEXT_PUBLIC_VERCEL_ENV,
+    NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA:
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
+  };
+}
+
+function readRawEnv() {
+  return {
+    ...readRawPublicEnv(),
     APP_URL: process.env.APP_URL,
     APP_CURRENCY: process.env.APP_CURRENCY,
     APP_TIMEZONE: process.env.APP_TIMEZONE,
     ARCJET_KEY: process.env.ARCJET_KEY,
+    SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
+    SENTRY_ORG: process.env.SENTRY_ORG,
+    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
     UI_GALLERY: process.env.UI_GALLERY,
   };
 }
@@ -131,4 +214,37 @@ export function env(): Env {
 
   cached = parsed.data;
   return cached;
+}
+
+let cachedPublic: PublicEnv | null = null;
+
+/**
+ * The browser safe subset, readable on either side of the wire.
+ *
+ * Use this only where the code genuinely runs in both places, which today is
+ * the error monitoring setup from spec 0011. Server code should keep calling
+ * `env()`, which validates everything and so catches a misconfigured server
+ * value at boot rather than at the moment somebody needs it.
+ *
+ * This one does not throw on a missing value the way `env()` does, because
+ * every field in the public schema is either always inlined by the build or
+ * optional by design. A DSN that is absent means monitoring is off, which is a
+ * supported configuration rather than a broken one.
+ */
+export function publicEnv(): PublicEnv {
+  if (cachedPublic) return cachedPublic;
+
+  const parsed = publicEnvSchema.safeParse(readRawPublicEnv());
+  if (!parsed.success) {
+    const problems = parsed.error.issues
+      .map((issue) => `  ${issue.path.join(".")}: ${issue.message}`)
+      .join("\n");
+    throw new Error(
+      `FinTrack is missing or has invalid public environment configuration:\n${problems}\n` +
+        `Copy .env.example to .env.local and fill it in.`,
+    );
+  }
+
+  cachedPublic = parsed.data;
+  return cachedPublic;
 }
