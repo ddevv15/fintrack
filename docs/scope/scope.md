@@ -22,7 +22,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 9 | Categories you manage | Release 2 | done |
 | 10 | Search and filter your history | Release 2 | done |
 | 11 | Export and backup | Release 2 | done |
-| 12 | Error monitoring | Release 2 | done |
+| 12 | Error monitoring | Release 2 | in-progress |
 | 13 | Budgets per category | Release 3 | planned |
 | 14 | Income and money coming in | Release 4 | planned |
 | 15 | Recurring bills and subscriptions | Release 4 | planned |
@@ -186,9 +186,9 @@ Find out when something broke instead of silently losing an entry.
   - [x] Browser and root crash coverage: the client instrumentation and `app/global-error.tsx`, which supplies its own `html` and `body` and so cannot be a copy of `app/error.tsx` (AC-1, AC-16)
   - [x] Refusals named and traces made readable: `lib/errors.ts` carrying the kind, thrown by the guards without pulling the SDK into them, plus source map upload and the release tagged from the commit (AC-2, AC-10, AC-11, AC-15)
 - [x] Verify it: `/check verify error monitoring` (2026-08-31: every acceptance criterion proved except the email itself, including the whole privacy guarantee against a real send, the environment gate, fail open, and source maps resolving against the commit; `/check review` on Sonnet found three majors, all fixed)
-- [x] Sentry project created, credentials in `.env.local` and `.env.sentry-build-plugin`, two test reports accepted, source maps uploading against the commit (AC-3, AC-10)
+- [x] Sentry project created, credentials in `.env.local` and `.env.sentry-build-plugin`, two test reports accepted and visible as issues, source maps uploading against the commit (AC-10)
   - [ ] Still yours to do when you next deploy: set the four Sentry variables on the Vercel project, and set `NEXT_PUBLIC_SENTRY_DSN` **before** the build, not after, because it is baked into the browser bundle
-  - [ ] Still yours to confirm: that an email actually arrived for the two new issues. Everything up to Sentry's door is proved; the inbox is the one link nobody but you can see
+  - [ ] **Open, and it is the point of the feature (AC-3).** The issues arrive; the email does not. Nothing in this app can fix it: the alert rule and the notification settings live in Sentry. Until this fires, finding out that something broke still depends on you opening a dashboard
 
 ## Release 3: control
 

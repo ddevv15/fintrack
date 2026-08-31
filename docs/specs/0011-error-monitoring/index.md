@@ -1,7 +1,7 @@
 # 0011. Report errors to Sentry, with money and typed text stripped before they leave
 
 **Date**: 2026-08-31
-**Status**: Accepted
+**Status**: In Progress
 
 ## Summary
 
@@ -137,7 +137,7 @@ Ordered Skateboard style per `AGENTS.md`: the thinnest usable whole first, then 
 2. [x] Write the allow list report builder as a pure function in its own module, taking Sentry's `ErrorEvent` and returning a new object carrying only the fields in **Report shape**. Unit test it against a fabricated event carrying an amount, a note, a merchant, a cookie, a query string, and breadcrumbs, asserting none survive, satisfies **AC-4**, **AC-5**, **AC-6**, **AC-7**, **AC-17**.
 3. [x] Add `instrumentation.ts` with `register()` and `onRequestError`, initialising Sentry only when a DSN is present **and** `VERCEL_ENV` is exactly `production` or `preview`, never by excluding `development`. Wire the builder from step 2 as the outgoing filter, switch the console and network breadcrumb integrations off so nothing is collected, disable tracing and replay explicitly, and flush a report before the handler returns so a frozen serverless function cannot cut an in flight send, satisfies **AC-1**, **AC-9**, **AC-12**, **AC-14**.
 4. [x] Attach the user id from the session, and nothing else from it, satisfies **AC-8**.
-5. [x] Configure the alert rule so a new issue emails you and a recurrence does not, satisfies **AC-3**. The project exists and accepted two reports on 2026-08-31; Sentry creates a new issue alert by default, so this is done unless the inbox says otherwise.
+5. [ ] Configure the alert rule so a new issue emails you and a recurrence does not, satisfies **AC-3**. **Not done.** Two reports were accepted and both appeared as issues on 2026-08-31, so everything up to Sentry's door works, but no email arrived for either. Assuming a project gets a working new issue rule by default was wrong. This is the last open item in the feature, and it is the one the whole feature exists for: a dashboard you have to remember to open is the problem this was meant to solve.
 6. [x] Add `instrumentation-client.ts` and `app/global-error.tsx`, so a browser failure and a root layout crash are both captured. `global-error.tsx` replaces the root layout when it renders, so it must supply its own `<html>` and `<body>`; it cannot be a copy of `app/error.tsx`, which sits inside the layout and supplies neither. Extract the shared inner markup so both render the same thing, and leave `app/error.tsx` itself untouched, satisfies **AC-1**, **AC-16**.
 7. [x] Add `lib/errors.ts` exporting the error type carrying a `kind` field, importing nothing. Throw it from the guards in `lib/month.ts` and `lib/export.ts` in place of a bare `Error`, keeping both modules free of any SDK import, and read `kind` in the builder to set the tag, satisfies **AC-2**.
 8. [x] Wrap `next.config.ts` with the Sentry build plugin so source maps upload and the release is set from `VERCEL_GIT_COMMIT_SHA`, keeping the existing Turbopack root pin intact, satisfies **AC-10**, **AC-11**.
