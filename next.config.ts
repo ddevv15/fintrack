@@ -43,11 +43,19 @@ const nextConfig: NextConfig = {
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
 
-  // Quiet unless something is wrong. A build log that prints upload chatter on
-  // every run trains you to skim past the line that actually matters.
-  silent: true,
+  // Deliberately not passed. The plugin loads `.env.sentry-build-plugin`
+  // itself, which is where the wizard put the token and where it is gitignored;
+  // naming `authToken` here with an unset variable overrides that with
+  // undefined and silently turns the upload off. `SENTRY_AUTH_TOKEN` in the
+  // environment still works, because the plugin reads it under that exact name.
+
+  // Quiet locally, loud in CI. A build log that prints upload chatter on every
+  // local run trains you to skim past the line that matters, but silence
+  // everywhere is worse: this spec's own consequences section names a rotated
+  // token as the failure that degrades quietly, and a silent build is what
+  // would let it. CI is where somebody is actually reading.
+  silent: !process.env.CI,
   telemetry: false,
 
   sourcemaps: {

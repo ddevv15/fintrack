@@ -71,3 +71,6 @@ next-env.d.ts
 
 # playwright signed in session state, rebuilt by tests/e2e/signed-in.setup.ts
 /tests/e2e/.auth/
+
+# Sentry Config File
+.env.sentry-build-plugin

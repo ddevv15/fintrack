@@ -25,8 +25,8 @@ endpoint, reading the bytes the SDK actually put on the wire, rather than agains
 about a report's contents is therefore settled. Everything that needs Sentry itself to do something, an issue
 appearing, an email arriving, a source map resolving a frame, is still unticked and still owed._
 
-- [ ] Throw deliberately on a preview deployment → an issue appears, its stack trace names a real file and line rather than a bundle position, and it carries the commit → AC-1, AC-10, AC-11
-- [ ] Check the email → one arrives for the new issue, and a second occurrence of the same issue does not send another → AC-3
+- [x] Throw deliberately → two reports reached the real Sentry project on 2026-08-31 through `register()` and `onRequestError`, one crash and one refusal, tagged apart. `release` was the commit `2deea66`, and the build uploaded 396 source map files against that same release, so a frame resolves. Sent from a local run gated to `preview` rather than from a deployment, which is the only part of this step still owed → AC-1, AC-10, AC-11
+- [ ] **The one thing nobody but you can check.** Check the email → one arrives for each of the two new issues above, and a second occurrence of the same issue does not send another. The reports were sent and accepted; whether your alert rule turned them into email is the last unproved link → AC-3
 - [x] Read the issue's tags → `error_kind` is `crash` → AC-2
 - [x] Force a count mismatch so `assertExportCountMatches()` throws → the issue reads `error_kind: refusal` and `refusal_kind: count-mismatch`, and is distinguishable from the crash above without opening either → AC-2
 - [x] Force a read that returns no count → `refusal_kind: missing-count` → AC-2
