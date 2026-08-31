@@ -33,28 +33,37 @@ let started = false;
  * as `lib/attempt-limit.ts` does for a missing `ARCJET_KEY`.
  */
 export function register(): void {
-  const environment = publicEnv().NEXT_PUBLIC_VERCEL_ENV ?? env().VERCEL_ENV;
-
-  const options = monitoringOptions({
-    dsn: publicEnv().NEXT_PUBLIC_SENTRY_DSN,
-    environment,
-    release:
-      publicEnv().NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
-      env().VERCEL_GIT_COMMIT_SHA,
-  });
-
-  if (!options) {
-    // Only worth saying where reporting was plausibly wanted. On a laptop this
-    // is the normal state and a warning every boot would just be noise.
-    if (shouldReport(environment)) {
-      console.warn(
-        "[monitoring] NEXT_PUBLIC_SENTRY_DSN is not set, so no error in this deployment is reported anywhere. Nothing is watching for a crash or for a completeness guard refusing a read. Set it in the hosting project.",
-      );
-    }
-    return;
-  }
-
+  // The whole body is wrapped, not just the `init` call, and the reason is the
+  // blast radius rather than tidiness. `env()` and `publicEnv()` throw on a
+  // missing or malformed value, and Next requires `register()` to complete
+  // before the server will accept a request. So an unwrapped read here turns
+  // any misconfigured variable, including ones that have nothing to do with
+  // monitoring, into a server that never becomes ready. That is monitoring
+  // making an unrelated failure worse, which is the one thing this file
+  // promises not to do. The app still refuses loudly on bad configuration:
+  // `env()` throws again on the first request that needs it, where it belongs.
   try {
+    const environment = publicEnv().NEXT_PUBLIC_VERCEL_ENV ?? env().VERCEL_ENV;
+
+    const options = monitoringOptions({
+      dsn: publicEnv().NEXT_PUBLIC_SENTRY_DSN,
+      environment,
+      release:
+        publicEnv().NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+        env().VERCEL_GIT_COMMIT_SHA,
+    });
+
+    if (!options) {
+      // Only worth saying where reporting was plausibly wanted. On a laptop this
+      // is the normal state and a warning every boot would just be noise.
+      if (shouldReport(environment)) {
+        console.warn(
+          "[monitoring] NEXT_PUBLIC_SENTRY_DSN is not set, so no error in this deployment is reported anywhere. Nothing is watching for a crash or for a completeness guard refusing a read. Set it in the hosting project.",
+        );
+      }
+      return;
+    }
+
     Sentry.init(options);
     started = true;
   } catch (error) {

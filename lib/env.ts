@@ -11,6 +11,16 @@ import { z } from "zod";
  * Spec 0001 expected those last four to be PostHog keys. Spec 0011 weighed that
  * choice, which 0001 had pencilled in without deliberating, and chose Sentry
  * instead. Everything else in 0001 stands.
+ *
+ * Two schemas live here, not one. `env()` validates everything and is what
+ * server code calls. `publicEnv()` validates only the browser safe subset, for
+ * the few modules that genuinely run on both sides, which today is the spec
+ * 0011 monitoring setup.
+ *
+ * One file reads `process.env` directly and is allowed to: `next.config.ts`,
+ * for the three build time Sentry values. Next loads that config before this
+ * module's graph exists, so it cannot import from here. The values are still
+ * declared and validated below for every consumer that runs inside the app.
  */
 /**
  * The values that reach the browser, split out so they can be read there.

@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-import { refusal } from "@/lib/errors";
+import { fault, refusal } from "@/lib/errors";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { parseRows, type EntryDirection } from "@/lib/schema";
 import { currentMonthRange, type PlainDate } from "@/lib/time";
@@ -245,9 +245,10 @@ export async function readTransactionRange<Row>(options: {
   // Rethrown, never swallowed. Every caller has an error boundary and none of
   // them has an honest degraded form.
   if (result.error) {
-    throw new Error(
-      `Could not read ${what.toLowerCase()}: ${JSON.stringify(result.error)}`,
-    );
+    // Logged here, never carried in the message. The server log is readable by
+    // you alone; a thrown message is copied verbatim into every error report.
+    console.error(`[read] ${what} failed`, result.error);
+    throw fault(what);
   }
 
   const rows = parseRows(schema, "transactions", result.data);

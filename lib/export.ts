@@ -1,4 +1,4 @@
-import { refusal } from "@/lib/errors";
+import { fault, refusal } from "@/lib/errors";
 import { readTransactionRange, type TransactionCursor } from "@/lib/month";
 import {
   parseRows,
@@ -300,9 +300,10 @@ export async function loadAllCategories(): Promise<
     .limit(MAX_EXPORT_ROWS);
 
   if (result.error) {
-    throw new Error(
-      `Could not read ${what.toLowerCase()}: ${JSON.stringify(result.error)}`,
-    );
+    // Logged here, never carried in the message. The server log is readable by
+    // you alone; a thrown message is copied verbatim into every error report.
+    console.error(`[read] ${what} failed`, result.error);
+    throw fault(what);
   }
 
   const matched = result.count ?? undefined;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { fault } from "@/lib/errors";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { currentSpendMonth, readSpendMonth } from "@/lib/month";
 import type { MinorUnits } from "@/lib/money";
@@ -168,9 +169,10 @@ export async function loadTransactionForEdit(
     .maybeSingle();
 
   if (result.error) {
-    throw new Error(
-      `Could not read that entry: ${JSON.stringify(result.error)}`,
-    );
+    // Logged, not carried. See `fault()` for why a driver payload must not
+    // reach a message that spec 0011 copies verbatim into every report.
+    console.error("[read] That entry failed", result.error);
+    throw fault("That entry");
   }
 
   if (!result.data) return undefined;

@@ -61,10 +61,11 @@ export function shouldReport(environment: string | undefined): boolean {
  * process must not report, which every caller treats as "do not initialise".
  *
  * Two layers of privacy here, deliberately, and the second is not redundant.
- * `dataCollection` stops the SDK gathering cookies, headers, bodies, and query
- * strings in the first place, which matters because those default to being
- * COLLECTED in this SDK version: `sendDefaultPii: false` does not turn them
- * off, contrary to what the name suggests. `beforeSend` then rebuilds whatever
+ * `dataCollection` stops the SDK gathering cookies, headers, bodies, query
+ * strings, stack frame locals, and returned database rows in the first place,
+ * which matters because every one of those defaults to being COLLECTED in this
+ * SDK version: `sendDefaultPii: false` does not turn them off, contrary to what
+ * the name suggests. `beforeSend` then rebuilds whatever
  * still arrives from an allow list, so a default that changes in a later
  * version, or a field that does not exist yet, cannot leak through.
  */
@@ -101,6 +102,21 @@ export function monitoringOptions(input: {
       // is not an oversight or a default; the default is all four body types.
       httpBodies: [],
       urlQueryParams: false,
+
+      // The frame locals, off at the source rather than stripped later. This
+      // is the field `keepFrame()` below calls the dangerous one: on a throw
+      // inside a save or a total it holds the amount. `keepFrame()` already
+      // drops it, and that is still the guarantee; this makes the drop a
+      // second line rather than the only one, which is the same reasoning
+      // `maxBreadcrumbs` is set to zero for. A field never gathered cannot
+      // leak through a builder somebody later edits.
+      stackFrameVariables: false,
+      // Lines of source around each frame. Not user data, but not needed
+      // either: the uploaded source map is what makes a trace readable.
+      frameContextLines: 0,
+      // Query parameters, inline literals in query text, and returned rows.
+      // Every one of those is somebody's spending.
+      databaseQueryData: false,
     },
 
     beforeSend: buildReport,
@@ -193,8 +209,21 @@ export function buildReport(event: ErrorEvent, hint?: EventHint): ErrorEvent {
       values: event.exception.values.map((value) => ({
         type: value.type,
         value: value.value,
-        mechanism: value.mechanism,
         module: value.module,
+        // Rebuilt rather than copied. `mechanism.data` is an open ended bag
+        // the SDK fills with handler names, and a bag is exactly the shape
+        // this file refuses to pass through unread. The three fields kept are
+        // what makes a trace readable: how it was caught, and whether it was
+        // handled.
+        ...(value.mechanism
+          ? {
+              mechanism: {
+                type: value.mechanism.type,
+                handled: value.mechanism.handled,
+                synthetic: value.mechanism.synthetic,
+              },
+            }
+          : {}),
         ...(value.stacktrace?.frames
           ? { stacktrace: { frames: value.stacktrace.frames.map(keepFrame) } }
           : {}),

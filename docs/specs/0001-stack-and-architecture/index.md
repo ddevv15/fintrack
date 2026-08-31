@@ -41,7 +41,7 @@ FinTrack is built as a single Next.js application in TypeScript, backed by one I
 | Lint and format | ESLint with `eslint-config-next`, plus Prettier | The Next config carries App Router rules that catch server and client boundary mistakes nothing else will |
 | Package manager | npm | What `jobpilot` uses and what every InsForge instruction assumes, since the CLI runs through `npx` |
 | Security hardening | Arcjet, designed at Feature 5 | Rate limiting and bot protection on sign in, which nothing else in this stack provides |
-| Observability | PostHog, designed at Feature 12 | Covers the Release 2 error monitoring feature, and InsForge already integrates with it |
+| Observability | ~~PostHog~~ Sentry, decided at Feature 12 | Superseded by [spec 0011](../0011-error-monitoring/index.md), which weighed the choice this row had pencilled in. PostHog is not ruled out for product analytics later |
 | Layout | `app/`, `components/`, `lib/`, `actions/`, `migrations/` | Mirrors `jobpilot`, so moving between your two projects costs nothing |
 
 **Configuration required**:
@@ -51,7 +51,7 @@ FinTrack is built as a single Next.js application in TypeScript, backed by one I
 - `APP_CURRENCY`: the currency code, `USD`, read by the one module that formats amounts
 - `APP_TIMEZONE`: the reference timezone used to work out what today is and where a month starts and ends. Set it to the zone you actually live in, and read rule 6 for why this exists
 - `ARCJET_KEY`: added when Feature 5 wires up sign in protection, not before
-- PostHog keys: added when Feature 12 designs error monitoring, not before
+- Sentry keys (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`): added at Feature 12 by spec 0011, which chose Sentry over the PostHog this line originally named
 
 Keep these in `.env.local`, keep a committed `.env.example` documenting them, and make sure `.env*.local` is ignored by git.
 
@@ -99,7 +99,7 @@ Keep these in `.env.local`, keep a committed `.env.example` documenting them, an
 - [ ] Run `/audit` once the scaffold boots, to write the `AGENTS.md` this decision currently has to substitute for.
 - [ ] Record the installed skills (`arcjet`, `vitest`) in the `## Agent skills` section of `AGENTS.md` when it exists, with their locations.
 - [ ] Record the declines so nothing offers them again: Drizzle and Prisma (no ORM fits InsForge), Better Auth and Clerk (the platform supplies auth), Biome (framework rules matter more), pnpm and bun (npm matches the tooling).
-- [ ] Authorize the PostHog MCP server. It is installed but unauthenticated, and this session could not run the sign in flow.
+- [x] ~~Authorize the PostHog MCP server.~~ No longer blocks anything: spec 0011 chose Sentry, so nothing depends on PostHog. Revisit only if product analytics is designed later.
 - [ ] Add the Arcjet MCP server with `claude mcp add arcjet -- npx -y @arcjet/mcp`. It is not a registry connector, so it needs adding by hand.
 - [ ] Decide how schema types reach the app: generated from the database, or hand written alongside each migration. This belongs in Feature 3, and until it is settled `/develop` will invent something. Cover two separate things, not one: table columns, and the contracts of the SQL functions called through `.rpc()`, meaning the function name, its parameter names and types, and the shape it returns. The function contracts are the riskier half, since a mistyped function name fails only when it runs, with nothing to catch it earlier.
 - [ ] Decide the actual list of default categories the trigger in rule 10 inserts. The mechanism is settled here, the list is a product choice that belongs with Feature 3 or Feature 9.

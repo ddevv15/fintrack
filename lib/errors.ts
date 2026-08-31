@@ -56,6 +56,31 @@ export function refusal(kind: RefusalKind, message: string): Error {
 }
 
 /**
+ * Build a fault: the read itself failed, and the driver's own words stay behind.
+ *
+ * The message is fixed prose with nothing interpolated into it, and that is the
+ * whole point of the function. Spec 0011 copies `exception.value` into every
+ * report verbatim, on the reasoning that the app writes its errors as readable
+ * sentences carrying row counts and read names rather than values. A database
+ * error is not that. It is an opaque payload from a driver, and Postgres is
+ * well known to quote the offending literal back at you, so a failed query over
+ * a note search could put what you typed inside the message and route it
+ * straight past the allow list, which never inspects prose.
+ *
+ * So the driver's payload is logged where it is useful and stays there. Callers
+ * are expected to `console.error` it themselves before throwing this: the
+ * server log is a place only you can read, and a report is not.
+ *
+ * The person sees this message too, on the error screen, and fixed prose is
+ * better there as well. Nobody was ever helped by serialised driver JSON.
+ */
+export function fault(what: string): Error {
+  return new Error(
+    `Could not read ${what.toLowerCase()}. The database refused the request, and the reason is in the server log. Nothing is shown rather than a figure that might be wrong.`,
+  );
+}
+
+/**
  * Read the label back, or undefined if this was not a refusal.
  *
  * Takes `unknown` because that is what the thing it reads actually is: Next's

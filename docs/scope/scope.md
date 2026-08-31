@@ -185,7 +185,10 @@ Find out when something broke instead of silently losing an entry.
   - [ ] Server capture, gated and unable to break anything (code landed; the email alert rule is set in the Sentry dashboard and still needs doing): `instrumentation.ts` reporting only when the environment is exactly production or preview, the user id and nothing else from the session, tracing and replay off, the send flushed before a function can freeze, and the email rule on a new issue (AC-1, AC-3, AC-8, AC-9, AC-12, AC-14)
   - [x] Browser and root crash coverage: the client instrumentation and `app/global-error.tsx`, which supplies its own `html` and `body` and so cannot be a copy of `app/error.tsx` (AC-1, AC-16)
   - [x] Refusals named and traces made readable: `lib/errors.ts` carrying the kind, thrown by the guards without pulling the SDK into them, plus source map upload and the release tagged from the commit (AC-2, AC-10, AC-11, AC-15)
-- [ ] Verify it: `/check verify error monitoring`
+- [x] Verify it: `/check verify error monitoring` (2026-08-31: 15 of 17 acceptance criteria proved against a real send, including the whole privacy guarantee, the environment gate, and fail open; `/check review` on Sonnet found three majors, all fixed)
+- [ ] Two setup steps left, both in somebody else's dashboard, and the feature does nothing useful until they are done:
+  - [ ] Create the Sentry project and its alert rule, so a new issue emails you and a recurrence does not (AC-3)
+  - [ ] Set `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` and `NEXT_PUBLIC_SENTRY_DSN` on the Vercel project, then deploy, so source maps upload and a trace names a real file (AC-10). Set the DSN before the build, not after: it is baked into the browser bundle
 
 ## Release 3: control
 

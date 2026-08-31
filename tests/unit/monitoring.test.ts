@@ -143,7 +143,7 @@ describe("monitoringOptions", () => {
     ).toBeUndefined();
   });
 
-  it("collects none of the four things that default to being collected", () => {
+  it("collects none of the things that default to being collected", () => {
     const options = monitoringOptions(configured);
 
     // Each of these defaults to ON in this SDK version, and sendDefaultPii
@@ -156,6 +156,16 @@ describe("monitoringOptions", () => {
     expect(options?.dataCollection.httpBodies).toEqual([]);
     expect(options?.dataCollection.urlQueryParams).toBe(false);
     expect(options?.dataCollection.userInfo).toBe(false);
+  });
+
+  it("never gathers the frame locals, which is where an amount would sit", () => {
+    const options = monitoringOptions(configured);
+
+    // `keepFrame()` drops these too. That is the guarantee; this is the second
+    // line, so a future edit to the builder cannot make it the only one.
+    expect(options?.dataCollection.stackFrameVariables).toBe(false);
+    expect(options?.dataCollection.frameContextLines).toBe(0);
+    expect(options?.dataCollection.databaseQueryData).toBe(false);
   });
 
   it("keeps errors only, with no tracing and no session replay", () => {
@@ -267,6 +277,40 @@ describe("buildReport privacy guarantee", () => {
     event.user = undefined;
 
     expect(buildReport(event).user).toBeUndefined();
+  });
+});
+
+describe("buildReport rebuilding the exception", () => {
+  it("keeps the mechanism's three known fields and drops its open bag", () => {
+    const event = eventCarryingEverything();
+    event.exception!.values![0]!.mechanism = {
+      type: "onunhandledrejection",
+      handled: false,
+      synthetic: true,
+      // An open ended bag the SDK fills in. Copying the mechanism whole would
+      // carry whatever a later SDK version decides to put here.
+      data: { note: NOTE, amount: AMOUNT },
+    };
+
+    const report = buildReport(event);
+    const mechanism = report.exception?.values?.[0]?.mechanism;
+
+    expect(mechanism).toEqual({
+      type: "onunhandledrejection",
+      handled: false,
+      synthetic: true,
+    });
+    expect(JSON.stringify(report)).not.toContain(NOTE);
+    expect(JSON.stringify(report)).not.toContain(AMOUNT);
+  });
+
+  it("leaves the mechanism out entirely when there was none", () => {
+    const event = eventCarryingEverything();
+    delete event.exception!.values![0]!.mechanism;
+
+    expect(buildReport(event).exception?.values?.[0]).not.toHaveProperty(
+      "mechanism",
+    );
   });
 });
 
