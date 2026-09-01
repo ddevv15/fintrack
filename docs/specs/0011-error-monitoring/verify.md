@@ -1,11 +1,11 @@
-# Verify: Error monitoring · spec 0011 · updated 2026-08-31
+# Verify: Error monitoring · spec 0011 · updated 2026-09-01
 
 _Steps derived from spec 0011 acceptance criteria and every row of its Value sourcing table. `/check verify` runs these; `/test` locks the durable ones._
 
-Updated 2026-08-31 after `/check verify` and `/check review`. Most of what this file said could not be run turned out to be runnable
-without a Sentry project, by pointing the SDK at a local stand in for the ingest endpoint and reading the bytes it actually sent.
-What genuinely still needs Sentry itself is short and listed below: an issue appearing, an email arriving, and a source map
-resolving a frame. Those are the two acceptance criteria still owed, AC-3 and AC-10.
+Updated 2026-09-01. Most of what this file said could not be run turned out to be runnable without a Sentry project, by
+pointing the SDK at a local stand in for the ingest endpoint and reading the bytes it actually sent. Everything inside Sentry
+is now proved too: the issue appears, the source map resolves, and the alert rule fires. One acceptance criterion is still
+owed, AC-3, and it no longer sits in Sentry at all. It sits in the inbox.
 
 ## Commands
 
@@ -22,11 +22,12 @@ resolving a frame. Those are the two acceptance criteria still owed, AC-3 and AC
 
 _The ticks below were proved on 2026-08-31 by `/check verify` against a local stand in for Sentry's ingest
 endpoint, reading the bytes the SDK actually put on the wire, rather than against a real project. Everything
-about a report's contents is therefore settled. Everything that needs Sentry itself to do something, an issue
-appearing, an email arriving, a source map resolving a frame, is still unticked and still owed._
+about a report's contents is therefore settled. Of the things that need Sentry itself to act, the issue
+appearing, the source map resolving a frame, and the alert rule firing are all now proved against the real
+project. Only the email arriving is still owed._
 
 - [x] Throw deliberately → two reports reached the real Sentry project on 2026-08-31 through `register()` and `onRequestError`, one crash and one refusal, tagged apart. `release` was the commit `2deea66`, and the build uploaded 396 source map files against that same release, so a frame resolves. Sent from a local run gated to `preview` rather than from a deployment, which is the only part of this step still owed → AC-1, AC-10, AC-11
-- [ ] **Failed on 2026-08-31, and still open.** Both reports arrived and were visible as issues in Sentry, so capture, tagging, the release, and the source maps are all proved. No email arrived for either. The gap is in the Sentry project's alert rules or the account's notification settings, not in this app's code. Note when retesting: the two issues were resolved by hand, so re-sending the same errors produces a regression rather than a new issue, and a default rule that fires on new issues only will stay quiet. Send a distinct error → AC-3
+- [ ] **Still open on 2026-09-01, but the cause has moved.** The 31 August diagnosis was wrong on its facts. The project does have an issue alert rule, it has had one since the project was created, and it fired for both smoke test reports at 15:00 UTC that day; the rule's own trigger history lists them. A third, deliberately distinct error sent on 2026-09-01, `Ac3AlertProbeError` carrying the marker `AC3-MTIIVV7M`, landed as a new high priority issue, `JAVASCRIPT-NEXTJS-4`, and the rule fired for that too, at 10:27 UTC. The account accepts the mail: Issue Alerts is `On` with no per project override, the delivery method is Email, and the primary address is verified. Sentry has therefore handed three emails to the mail provider. What is unproved is whether any of them arrived, and that is the one link nobody but you can see. Search the inbox, spam included, for `Ac3AlertProbeError` or `AC3-MTIIVV7M` → AC-3
 - [x] Read the issue's tags → `error_kind` is `crash` → AC-2
 - [x] Force a count mismatch so `assertExportCountMatches()` throws → the issue reads `error_kind: refusal` and `refusal_kind: count-mismatch`, and is distinguishable from the crash above without opening either → AC-2
 - [x] Force a read that returns no count → `refusal_kind: missing-count` → AC-2
@@ -51,7 +52,7 @@ appearing, an email arriving, a source map resolving a frame, is still unticked 
 
 - AC-1 covered by the preview throw, the Server Action throw, the browser throw, and the root layout throw
 - AC-2 covered by the grep, the crash tag, and both refusal kinds
-- AC-3 covered by the email step
+- AC-3 covered by the email step, which now turns on nothing but whether the mail arrived
 - AC-4, AC-5, AC-6, AC-7 covered by the unit suite and by reading a real report
 - AC-8 covered by the unit suite and the report field read
 - AC-9 covered by the unit suite and by the local DSN step
