@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fault, refusal, refusalKindOf } from "@/lib/errors";
 
@@ -51,6 +51,14 @@ describe("refusalKindOf", () => {
 });
 
 describe("fault", () => {
+  // `fault()` writes the driver's payload to the server log itself. Spied so the
+  // suite stays quiet and so the write can actually be asserted below.
+  const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+  beforeEach(() => {
+    logged.mockClear();
+  });
+
   /**
    * The one that matters. A driver payload can quote the offending literal back,
    * so interpolating one into a message routes typed text straight past the
@@ -64,7 +72,7 @@ describe("fault", () => {
       details: "SELECT * FROM transactions WHERE note ILIKE '%dentist copay%'",
     };
 
-    const error = fault("Your transactions");
+    const error = fault("Your transactions", driverSaid);
 
     expect(error.message).toContain("your transactions");
     expect(error.message).not.toContain(driverSaid.code);
@@ -76,6 +84,27 @@ describe("fault", () => {
   it("is a fault rather than a refusal, so it reports as a crash", () => {
     // A refusal means the guards worked. A failed read means something broke.
     // They are opposite events and AC-2 turns on telling them apart.
-    expect(refusalKindOf(fault("Your categories"))).toBeUndefined();
+    expect(
+      refusalKindOf(fault("Your categories", new Error("boom"))),
+    ).toBeUndefined();
+  });
+
+  /**
+   * The payload has to survive somewhere, and the log is the only place it may
+   * go. This used to be the caller's job, stated in a docstring and enforced by
+   * nothing, so a call site that forgot it destroyed the only copy of the
+   * diagnosis in silence. Now it is impossible to build a fault without this
+   * happening, and this is the test that says so.
+   */
+  it("writes the driver's payload to the server log, where a report cannot reach", () => {
+    const driverSaid = { code: "22P02", detail: "dentist copay" };
+
+    fault("Your transactions", driverSaid);
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(
+      "[read] Your transactions failed",
+      driverSaid,
+    );
   });
 });

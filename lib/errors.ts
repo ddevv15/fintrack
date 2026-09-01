@@ -14,6 +14,11 @@
  * a side effect in the middle of the thing `AGENTS.md` says must stay pure. So
  * the throw site only labels the error, and the SDK stays at the edge, in the
  * instrumentation files, where it reads the label back.
+ *
+ * `refusal()` and `refusalKindOf()` are pure. `fault()` is not: it writes the
+ * driver's payload to the server log before returning. That is the one side
+ * effect here and it is deliberate, because the alternative was an invariant
+ * that lived in a docstring and could be forgotten silently. See `fault()`.
  */
 
 /** What kind of refusal this is. Two today, both about a read that cannot be proved whole. */
@@ -67,14 +72,24 @@ export function refusal(kind: RefusalKind, message: string): Error {
  * a note search could put what you typed inside the message and route it
  * straight past the allow list, which never inspects prose.
  *
- * So the driver's payload is logged where it is useful and stays there. Callers
- * are expected to `console.error` it themselves before throwing this: the
- * server log is a place only you can read, and a report is not.
+ * So the driver's payload is logged here and goes no further. The server log is
+ * a place only you can read; a report is not.
+ *
+ * Logging it is this function's job rather than the caller's, and that changed
+ * deliberately. It used to be stated in this comment and left to the six call
+ * sites, all of which obeyed it, and nothing enforced it. A seventh that forgot
+ * would have thrown away the only copy of the diagnosis with no test, no type,
+ * and no lint rule noticing: the person would still get honest prose and the
+ * cause would simply cease to exist. Taking `cause` and logging it here makes
+ * that impossible, because there is no way to build a fault without the payload
+ * reaching the log.
  *
  * The person sees this message too, on the error screen, and fixed prose is
  * better there as well. Nobody was ever helped by serialised driver JSON.
  */
-export function fault(what: string): Error {
+export function fault(what: string, cause: unknown): Error {
+  console.error(`[read] ${what} failed`, cause);
+
   return new Error(
     `Could not read ${what.toLowerCase()}. The database refused the request, and the reason is in the server log. Nothing is shown rather than a figure that might be wrong.`,
   );

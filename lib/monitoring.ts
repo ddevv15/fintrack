@@ -1,4 +1,9 @@
-import type { ErrorEvent, EventHint, StackFrame } from "@sentry/nextjs";
+import type {
+  BrowserOptions,
+  ErrorEvent,
+  EventHint,
+  StackFrame,
+} from "@sentry/nextjs";
 
 import { refusalKindOf } from "@/lib/errors";
 
@@ -60,6 +65,15 @@ export function shouldReport(environment: string | undefined): boolean {
  * quietly disagree about what is collected. Returns `undefined` when this
  * process must not report, which every caller treats as "do not initialise".
  *
+ * The return type is annotated rather than inferred, and that matters more than
+ * it looks. `Sentry.init()` takes a variable here, not a literal, so TypeScript
+ * runs no excess property check: without the annotation a misspelled or renamed
+ * `dataCollection` key compiles clean and silently collects again. That is the
+ * exact silent failure the paragraph above says this module exists to prevent,
+ * so the first layer is now checked by the compiler rather than by care alone.
+ * `BrowserOptions` is the type that accepts all of it; `NodeOptions` rejects the
+ * two replay settings below, which are browser only and inert on the server.
+ *
  * Two layers of privacy here, deliberately, and the second is not redundant.
  * `dataCollection` stops the SDK gathering cookies, headers, bodies, query
  * strings, stack frame locals, and returned database rows in the first place,
@@ -73,7 +87,7 @@ export function monitoringOptions(input: {
   readonly dsn: string | undefined;
   readonly environment: string | undefined;
   readonly release: string | undefined;
-}) {
+}): BrowserOptions | undefined {
   if (!input.dsn || !shouldReport(input.environment)) return undefined;
 
   return {
@@ -84,6 +98,8 @@ export function monitoringOptions(input: {
     // Errors only (AC-14). Tracing multiplies event volume for a question
     // nothing in this feature asks, and session replay would record a screen
     // covered in amounts, which would undo everything above it in one setting.
+    // The two replay settings apply to the browser half; replay does not exist
+    // server side, where they are accepted and ignored.
     tracesSampleRate: 0,
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,

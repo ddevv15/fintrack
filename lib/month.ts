@@ -245,10 +245,7 @@ export async function readTransactionRange<Row>(options: {
   // Rethrown, never swallowed. Every caller has an error boundary and none of
   // them has an honest degraded form.
   if (result.error) {
-    // Logged here, never carried in the message. The server log is readable by
-    // you alone; a thrown message is copied verbatim into every error report.
-    console.error(`[read] ${what} failed`, result.error);
-    throw fault(what);
+    throw fault(what, result.error);
   }
 
   const rows = parseRows(schema, "transactions", result.data);

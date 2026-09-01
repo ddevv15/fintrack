@@ -148,14 +148,14 @@ describe("monitoringOptions", () => {
 
     // Each of these defaults to ON in this SDK version, and sendDefaultPii
     // being false does not turn them off. Never gathering beats dropping later.
-    expect(options?.dataCollection.cookies).toBe(false);
-    expect(options?.dataCollection.httpHeaders).toEqual({
+    expect(options?.dataCollection?.cookies).toBe(false);
+    expect(options?.dataCollection?.httpHeaders).toEqual({
       request: false,
       response: false,
     });
-    expect(options?.dataCollection.httpBodies).toEqual([]);
-    expect(options?.dataCollection.urlQueryParams).toBe(false);
-    expect(options?.dataCollection.userInfo).toBe(false);
+    expect(options?.dataCollection?.httpBodies).toEqual([]);
+    expect(options?.dataCollection?.urlQueryParams).toBe(false);
+    expect(options?.dataCollection?.userInfo).toBe(false);
   });
 
   it("never gathers the frame locals, which is where an amount would sit", () => {
@@ -163,9 +163,9 @@ describe("monitoringOptions", () => {
 
     // `keepFrame()` drops these too. That is the guarantee; this is the second
     // line, so a future edit to the builder cannot make it the only one.
-    expect(options?.dataCollection.stackFrameVariables).toBe(false);
-    expect(options?.dataCollection.frameContextLines).toBe(0);
-    expect(options?.dataCollection.databaseQueryData).toBe(false);
+    expect(options?.dataCollection?.stackFrameVariables).toBe(false);
+    expect(options?.dataCollection?.frameContextLines).toBe(0);
+    expect(options?.dataCollection?.databaseQueryData).toBe(false);
   });
 
   it("keeps errors only, with no tracing and no session replay", () => {

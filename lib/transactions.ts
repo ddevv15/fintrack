@@ -169,10 +169,7 @@ export async function loadTransactionForEdit(
     .maybeSingle();
 
   if (result.error) {
-    // Logged, not carried. See `fault()` for why a driver payload must not
-    // reach a message that spec 0011 copies verbatim into every report.
-    console.error("[read] That entry failed", result.error);
-    throw fault("That entry");
+    throw fault("That entry", result.error);
   }
 
   if (!result.data) return undefined;

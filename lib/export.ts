@@ -300,10 +300,7 @@ export async function loadAllCategories(): Promise<
     .limit(MAX_EXPORT_ROWS);
 
   if (result.error) {
-    // Logged here, never carried in the message. The server log is readable by
-    // you alone; a thrown message is copied verbatim into every error report.
-    console.error(`[read] ${what} failed`, result.error);
-    throw fault(what);
+    throw fault(what, result.error);
   }
 
   const matched = result.count ?? undefined;
