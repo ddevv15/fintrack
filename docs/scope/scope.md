@@ -22,7 +22,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 9 | Categories you manage | Release 2 | done |
 | 10 | Search and filter your history | Release 2 | done |
 | 11 | Export and backup | Release 2 | done |
-| 12 | Error monitoring | Release 2 | in-progress |
+| 12 | Error monitoring | Release 2 | done |
 | 13 | Budgets per category | Release 3 | planned |
 | 14 | Income and money coming in | Release 4 | planned |
 | 15 | Recurring bills and subscriptions | Release 4 | planned |
@@ -188,7 +188,7 @@ Find out when something broke instead of silently losing an entry.
 - [x] Verify it: `/check verify error monitoring` (2026-08-31: every acceptance criterion proved except the email itself, including the whole privacy guarantee against a real send, the environment gate, fail open, and source maps resolving against the commit; `/check review` on Sonnet found three majors, all fixed)
 - [x] Sentry project created, credentials in `.env.local` and `.env.sentry-build-plugin`, two test reports accepted and visible as issues, source maps uploading against the commit (AC-10)
   - [ ] Still yours to do when you next deploy: set the four Sentry variables on the Vercel project, and set `NEXT_PUBLIC_SENTRY_DSN` **before** the build, not after, because it is baked into the browser bundle
-  - [ ] **Open, and it is the point of the feature (AC-3).** Corrected on 2026-09-01: the alert rule was never missing. It has existed since the project was created, it has fired for all three test errors including a fresh one sent that day, and it now fires on a new high priority issue only, the extra "existing issue" condition having been dropped. The account accepts issue alert email at a verified address. Everything inside Sentry is proved; the unconfirmed link is whether the mail arrives. Look for `Ac3AlertProbeError` in the inbox, spam included
+  - [x] **AC-3 closed on 2026-09-01.** The alert rule was never missing: it has existed since the project was created and fired for all three test errors. The email was arriving and being filtered as spam, which from an empty inbox looks exactly like a rule that never ran. The rule now fires on a new high priority issue only, the extra "existing issue" condition having been dropped. Whitelist Sentry's sender, because a spam filter is the one failure mode neither this repo nor Sentry can see
 
 ## Release 3: control
 
