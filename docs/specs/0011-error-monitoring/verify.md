@@ -5,8 +5,8 @@ _Steps derived from spec 0011 acceptance criteria and every row of its Value sou
 Updated 2026-09-01. Most of what this file said could not be run turned out to be runnable without a Sentry project, by
 pointing the SDK at a local stand in for the ingest endpoint and reading the bytes it actually sent. Everything inside Sentry
 is now proved too: the issue appears, the source map resolves, the alert rule fires, and the email arrives. AC-3 closed on
-2026-09-01, in the spam folder. What is still owed in this file needs a deployment rather than Sentry: a Server Action
-throw, a root layout throw, and the error page read.
+2026-09-01, in the spam folder. The last three unrun steps, the Server Action throw, the root layout throw, and the error
+page read, were run the same day against a production build with the gate set to `preview`. Nothing in this file is owed.
 
 ## Commands
 
@@ -44,10 +44,10 @@ against the real project too._
 - [x] Point `NEXT_PUBLIC_SENTRY_DSN` at an unreachable host on a preview deployment, then use the app normally → every screen behaves exactly as before, no request fails, and nothing is noticeably slower → AC-12
 - [x] Remove the DSN entirely from a preview deployment → the app runs normally and the log carries one line naming what is now unwatched → AC-13
 - [x] **The one that would bite quietly:** put a real DSN in `.env.local` and run locally → nothing is sent, because `VERCEL_ENV` is unset on a laptop rather than set to `development`. This is the case an exclusion style gate would let through, and the reason the gate names the two environments that may report → AC-9
-- [ ] Trigger an error in a Server Action during a save → it is reported, and the entry's amount is not in the report → AC-1, AC-4
+- [x] Trigger an error in a Server Action during a save → run 2026-09-01 against `npm run build && npm run start`. A cookie gated throw in `logSpend()`, placed after `parseAmount()` so the amount and the note were live locals in the frame, reached Sentry as `FINTRACK-5` with `mechanism: auto.function.nextjs.on_request_error` and `error_kind: crash`. The report carried neither `1234.56` nor `123456`, nor the note text `coffee-leak-probe`, nor a cookie, nor an `Authorization` header, nor a breadcrumb, and its `url` was `http://localhost:3000/` with the query string gone → AC-1, AC-4
 - [x] Trigger a browser side error → it is reported from the client half → AC-1
-- [ ] Force the root layout itself to throw → `app/global-error.tsx` renders with valid markup, its own `html` and `body` present, and the error is captured → AC-1
-- [ ] Read the error page in both cases → it looks as it did before this feature, `Reference:` digest line included → AC-16
+- [x] Force the root layout itself to throw → run 2026-09-01. The server answered 500 and the document it served was Next's own `<html id="__next_error__">` shell; `app/global-error.tsx` then rendered in the browser, giving exactly one `html` and one `body`, `lang="en"`, and the alert inside the body. It was captured twice, and both halves are right: `FINTRACK-6` on the server through `onRequestError`, carrying the real message, and `FINTRACK-7` in the browser from the `useEffect`, tagged `error_kind: crash` like everything else and carrying React's production sanitised message with no stacktrace. Two issues for one root failure is the price of that `useEffect`, which exists because a root failure happening only in the browser never reaches `onRequestError` at all → AC-1
+- [x] Read the error page in both cases → identical in both, and unchanged: the heading "Something broke", the message, a `Reference:` line carrying the digest (`3447099647` for the Server Action, `3966076254` for the root layout), and the "Try again" button. Worth knowing for whoever reads `ErrorScreen` next: in a production build the message React hands an error boundary for a server side throw is its own minified one, "Minified React error #441", not the message that was thrown. `ErrorScreen` does show the real message it is given, as its docstring says; for a server error in production Next has already replaced it before the boundary sees it, and the digest is what identifies the failure → AC-16
 
 ## Acceptance criteria coverage
 
