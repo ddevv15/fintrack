@@ -22,7 +22,7 @@ _These are recommendations to keep your build orderly, not requirements. Skip an
 | 9 | Categories you manage | Release 2 | done |
 | 10 | Search and filter your history | Release 2 | done |
 | 11 | Export and backup | Release 2 | done |
-| 12 | Error monitoring | Release 2 | planned |
+| 12 | Error monitoring | Release 2 | done |
 | 13 | Budgets per category | Release 3 | planned |
 | 14 | Income and money coming in | Release 4 | planned |
 | 15 | Recurring bills and subscriptions | Release 4 | planned |
@@ -175,10 +175,21 @@ Take everything you logged out of the app as a file, so months of typing are nev
   - [x] The categories download: its six columns, its route, and its link, so the pair is a real backup (AC-3, AC-5)
 - [x] Verify it: `/check verify export and backup`
 
-### 12. Error monitoring · needs a decision
+### 12. Error monitoring
+spec [0011](../specs/0011-error-monitoring/index.md) · code in `instrumentation.ts`, `instrumentation-client.ts`, `lib/monitoring.ts`, `lib/errors.ts`, `app/global-error.tsx`, `components/errors/`, `lib/env.ts`
 Find out when something broke instead of silently losing an entry.
 **Done when:** an error in the running app reaches somewhere you will actually see it, with enough detail to act on, and no money amounts or personal detail travel with it.
-- [ ] Design it (spec): `/architect error monitoring`
+- [x] Design it (spec): `/architect error monitoring`
+- [x] Build it: `/develop error monitoring`
+  - [x] Config and the privacy builder, in that order: the four Sentry variables with the DSN optional the way `ARCJET_KEY` is, then the allow list report builder that rebuilds each event from named fields, unit tested against an event carrying an amount, a note, a merchant, a cookie, a query string, and breadcrumbs (AC-4, AC-5, AC-6, AC-7, AC-13, AC-17)
+  - [x] Server capture, gated and unable to break anything: `instrumentation.ts` reporting only when the environment is exactly production or preview, the user id and nothing else from the session, tracing and replay off, the send flushed before a function can freeze, and the email rule on a new issue (AC-1, AC-3, AC-8, AC-9, AC-12, AC-14)
+  - [x] Browser and root crash coverage: the client instrumentation and `app/global-error.tsx`, which supplies its own `html` and `body` and so cannot be a copy of `app/error.tsx` (AC-1, AC-16)
+  - [x] Refusals named and traces made readable: `lib/errors.ts` carrying the kind, thrown by the guards without pulling the SDK into them, plus source map upload and the release tagged from the commit (AC-2, AC-10, AC-11, AC-15)
+- [x] Verify it: `/check verify error monitoring` (2026-08-31: every acceptance criterion proved except the email itself, including the whole privacy guarantee against a real send, the environment gate, fail open, and source maps resolving against the commit; `/check review` on Sonnet found three majors, all fixed)
+- [x] Quality review: [thermo-nuclear review, 2026-09-01](../reviews/2026-09-01-feat-error-monitoring-quality.md). Two contract gaps, both fixed: `monitoringOptions()` returned an unchecked shape, so a misspelled `dataCollection` key compiled clean and would have started collecting again in silence; and `fault()`'s logging contract lived in a docstring across six call sites, so one that forgot it would have destroyed the only copy of a driver payload. Three smaller items recorded and deliberately left open there
+- [x] Sentry project created, credentials in `.env.local` and `.env.sentry-build-plugin`, two test reports accepted and visible as issues, source maps uploading against the commit (AC-10)
+  - [ ] Still yours to do when you next deploy: set the four Sentry variables on the Vercel project, and set `NEXT_PUBLIC_SENTRY_DSN` **before** the build, not after, because it is baked into the browser bundle
+  - [x] **AC-3 closed on 2026-09-01.** The alert rule was never missing: it has existed since the project was created and fired for all three test errors. The email was arriving and being filtered as spam, which from an empty inbox looks exactly like a rule that never ran. The rule now fires on a new high priority issue only, the extra "existing issue" condition having been dropped. Whitelist Sentry's sender, because a spam filter is the one failure mode neither this repo nor Sentry can see
 
 ## Release 3: control
 

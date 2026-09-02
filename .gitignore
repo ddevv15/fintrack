@@ -69,5 +69,12 @@ next-env.d.ts
 .trae
 .windsurf
 
+# Editor config. Local to whoever is sitting here; `.vscode/mcp.json` also names
+# a per machine Sentry project, so it is not shareable even in principle.
+.vscode/
+
 # playwright signed in session state, rebuilt by tests/e2e/signed-in.setup.ts
 /tests/e2e/.auth/
+
+# Sentry Config File
+.env.sentry-build-plugin

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { fault } from "@/lib/errors";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import {
   categorySchema,
@@ -58,9 +59,7 @@ export async function listSpendCategories(): Promise<readonly SpendCategory[]> {
   // Rethrown, never swallowed: rule 3 of AGENTS.md, and see the note above on
   // why an empty list is not an acceptable stand in for a failure.
   if (result.error) {
-    throw new Error(
-      `Could not read your categories: ${JSON.stringify(result.error)}`,
-    );
+    throw fault("Your categories", result.error);
   }
 
   // Parsed against the full row schema so a renamed column fails loudly here
@@ -118,9 +117,7 @@ export async function listSpendCategoryOptions(
   // listSpendCategories() for why an empty list is not an acceptable stand in
   // for a failure.
   if (result.error) {
-    throw new Error(
-      `Could not read your categories: ${JSON.stringify(result.error)}`,
-    );
+    throw fault("Your categories", result.error);
   }
 
   const rows = parseRows(categorySchema, "categories", result.data);
@@ -166,9 +163,7 @@ export async function listSpendCategoryFilterOptions(): Promise<
     .order("name", { ascending: true });
 
   if (result.error) {
-    throw new Error(
-      `Could not read your categories: ${JSON.stringify(result.error)}`,
-    );
+    throw fault("Your categories", result.error);
   }
 
   const rows = parseRows(categorySchema, "categories", result.data);

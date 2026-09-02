@@ -23,6 +23,7 @@
   "dependencies": {
     "@arcjet/next": "^1.10.0",
     "@insforge/sdk": "^1.5.2",
+    "@sentry/nextjs": "^10.72.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.33.0",

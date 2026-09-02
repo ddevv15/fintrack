@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { fault } from "@/lib/errors";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { currentSpendMonth, readSpendMonth } from "@/lib/month";
 import type { MinorUnits } from "@/lib/money";
@@ -168,9 +169,7 @@ export async function loadTransactionForEdit(
     .maybeSingle();
 
   if (result.error) {
-    throw new Error(
-      `Could not read that entry: ${JSON.stringify(result.error)}`,
-    );
+    throw fault("That entry", result.error);
   }
 
   if (!result.data) return undefined;

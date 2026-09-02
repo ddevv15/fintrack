@@ -75,6 +75,7 @@ Two things to know before you touch a config here. `npm run typecheck` runs `nex
 - [vitest](.agents/skills/vitest/): `antfu/skills`, unit testing for money maths and month boundaries
 - [arcjet](.agents/skills/arcjet/): `arcjet/skills`, rate limiting and bot protection, wired up at feature 5
 - [accessibility](.agents/skills/accessibility/): `addyosmani/web-quality-skills`, WCAG patterns and the checks that catch a barrier early. Applies to every UI file.
+- [sentry-instrument / sentry-setup-releases / sentry-fix-stack-traces](https://github.com/getsentry): `Sentry`, wiring up error monitoring, releases, and readable stack traces. Project wide, since instrumentation touches every layer. Added at feature 12 by spec 0011
 
 Declined: Drizzle, Prisma, Better Auth, Clerk, Biome, pnpm, bun · `community-access/accessibility-agents@playwright-testing` · `nweii/agent-stuff@suggest-lucide-icons` · `hairyf/skills@tailwindcss` (it does not distinguish v3 from v4, and this project is on v4)
 
