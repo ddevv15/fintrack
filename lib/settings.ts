@@ -1,5 +1,6 @@
 import { cache } from "react";
 
+import { currentUser } from "@/lib/auth";
 import { decimalsFor } from "@/lib/currency";
 import { createInsforgeServer } from "@/lib/insforge-server";
 import { parseRow, profileSchema } from "@/lib/schema";
@@ -46,9 +47,13 @@ export const getSettings = cache(
   async function getSettings(): Promise<Settings> {
     const insforge = await createInsforgeServer();
 
-    const { data: userData, error: userError } =
-      await insforge.auth.getCurrentUser();
-    if (userError || !userData?.user?.id) {
+    // `currentUser()` rather than a second `getCurrentUser()` of our own. It is
+    // the same question, asked of the same endpoint, and it is the most
+    // expensive call in the app; memoised there, the layout has usually already
+    // paid for it and this is free. Asking it directly here cost every signed in
+    // page a duplicate 330ms round trip.
+    const user = await currentUser();
+    if (!user) {
       throw new Error(
         "Cannot read settings: nobody is signed in. Every caller of getSettings() is behind route protection, so reaching this means the proxy let an unauthenticated request through.",
       );
@@ -57,7 +62,7 @@ export const getSettings = cache(
     const { data, error } = await insforge.database
       .from("profiles")
       .select("user_id,display_name,currency,timezone,created_at")
-      .eq("user_id", userData.user.id)
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (error) {

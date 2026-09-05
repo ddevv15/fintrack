@@ -59,6 +59,14 @@ async function fillSpend(page: Page, amount: string, note?: string) {
 test.describe("log a spend", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
+
+    // The form streams in behind a `<Suspense>`, so `goto()` resolves while the
+    // placeholder is still on screen. Every test below drives the form, and a
+    // click that lands before React has hydrated it submits the plain HTML form
+    // instead of the action, which reports failure somewhere the assertions are
+    // not looking. Waiting for a real field means they all start from a form
+    // that is actually there.
+    await expect(page.getByLabel("Amount")).toBeVisible();
   });
 
   test("shows the four fields, dated today in your own zone", async ({
@@ -221,7 +229,17 @@ test.describe("log a spend", () => {
     // disagree until something else happens to reload, which is the kind of
     // wrongness you only notice after trusting the wrong number.
     const totalOnScreen = async () => {
-      const text = await page.locator("main").innerText();
+      // Waited for rather than read straight off, because the breakdown streams:
+      // it sends its shell with a placeholder and fills the figures in when the
+      // read comes back, so `goto()` now resolves while the skeleton is still
+      // on screen. A plain `innerText()` here samples whichever of the two
+      // happened to be rendered at that instant, which passed before the
+      // Suspense boundaries existed and is a race now. The web first assertion
+      // retries until the real total is there.
+      const main = page.locator("main");
+      await expect(main).toContainText(/Total spent/);
+
+      const text = await main.innerText();
       const match = text.match(/Total spent\s*\$?([\d,]+\.\d{2})/);
       if (!match) throw new Error(`no total found in: ${text.slice(0, 200)}`);
       return Number(match[1].replace(/,/g, ""));
