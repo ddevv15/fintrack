@@ -41,6 +41,13 @@ async function violationsOn(page: Page) {
 test.describe("where your money went", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/breakdown");
+
+    // The screen streams: `goto()` resolves on the shell, with the figures still
+    // on their way. Assertions auto retry and do not care, but the one shot
+    // readers in this file (`allInnerTexts`, `innerText`) sample the DOM once
+    // and would sample the placeholder. Waiting for the heading here means
+    // every test below starts from a settled screen.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("shows the month total (AC-1)", async ({ page }) => {

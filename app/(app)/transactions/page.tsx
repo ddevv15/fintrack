@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { MonthStatusProvider } from "@/components/transactions/MonthStatus";
 import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { Amount } from "@/components/ui/Amount";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { requireCompleteSettings } from "@/lib/settings";
 import { formatMonth } from "@/lib/time";
 import { loadMonthTransactions } from "@/lib/transactions";
@@ -22,8 +24,44 @@ import { loadMonthTransactions } from "@/lib/transactions";
  * screen shows an honest error rather than a list that is quietly missing
  * entries (AC-7). Catching here to render what did arrive would be the exact
  * failure the completeness guard exists to prevent.
+ *
+ * The reads sit inside a `<Suspense>` rather than at the top of this function,
+ * and it is a `<Suspense>` here rather than a `loading.tsx` file, which is the
+ * part worth not undoing. Both stream, and streaming is the point: without it
+ * the router has nothing to show while this month is read, so it holds the
+ * previous screen frozen until the whole page is rendered and a click feels
+ * broken. The difference is reach. A `loading.tsx` in this folder would wrap
+ * every route below it too, including `[id]/edit`, and a response that has
+ * begun streaming has already sent its 200; the `notFound()` there could then
+ * only swap the body, never the status, which is exactly what AC-15 pins down
+ * and what `transactions.signed.spec.ts` fails on. A boundary written here
+ * covers this page and nothing else.
  */
-export default async function TransactionsPage() {
+export default function TransactionsPage() {
+  return (
+    <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+      <Suspense
+        fallback={
+          <Skeleton
+            label="Loading this month's entries."
+            variant="row"
+            count={5}
+          />
+        }
+      >
+        <MonthEntries />
+      </Suspense>
+    </div>
+  );
+}
+
+/**
+ * The half of the screen that waits on the backend.
+ *
+ * Split out only so the boundary above has something to suspend on. Everything
+ * here is what the page did before, unchanged.
+ */
+async function MonthEntries() {
   // Safe to reach for the complete branch: the (app) layout redirects an
   // incomplete profile to /setup before this component renders. Cached per
   // request, so this and the loader's own call cost one query between them.
@@ -33,7 +71,7 @@ export default async function TransactionsPage() {
   const monthName = formatMonth(month.month);
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+    <>
       <div>
         <h1 className="text-fg text-2xl font-semibold">{monthName}</h1>
         <p className="text-fg-muted mt-1 text-sm">What you logged this month</p>
@@ -106,6 +144,6 @@ export default async function TransactionsPage() {
           </>
         )}
       </MonthStatusProvider>
-    </div>
+    </>
   );
 }

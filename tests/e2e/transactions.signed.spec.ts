@@ -76,6 +76,13 @@ function seededRow(page: Page, seed: (typeof SEED_SPENDING)[number]) {
 test.describe("this month's transactions", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/transactions");
+
+    // The screen streams: `goto()` resolves on the shell, with the figures still
+    // on their way. Assertions auto retry and do not care, but the one shot
+    // readers in this file (`allInnerTexts`, `innerText`) sample the DOM once
+    // and would sample the placeholder. Waiting for the heading here means
+    // every test below starts from a settled screen.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
   test("names the month and the year in the heading", async ({ page }) => {

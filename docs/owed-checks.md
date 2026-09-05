@@ -35,7 +35,7 @@ merge properly._
 | A deliberate source change to force a failure | 4 | A scratch branch |
 | Test harness work | 2 | See below, both are real gaps |
 | Your go ahead, because they have side effects | 2 | A yes |
-| A production deployment | 1 | A deploy, then a fortnight of Sentry |
+| A production deployment | 2 | A deploy, then one header and a fortnight of Sentry |
 
 ## 1. Waiting on a screen reader session
 
@@ -201,8 +201,9 @@ transactions` is the answer.
 ## 9. Waiting on a production deployment
 
 Checks rather than doubts: the reasoning is settled and the change is made, but
-it cannot be confirmed from a laptop.
+neither can be confirmed from a laptop.
 
+- **The region pin holds, and is worth what it should be** (`vercel.json`). Functions were running in `iad1` while the database sits in `ap-southeast`, so every one of the backend round trips a signed in page makes crossed the Pacific. Two things to look at. `x-vercel-id` on any response should now name `sin1` rather than `iad1`; if it still says `iad1` the region is not available on the plan and it belongs in project settings instead. Then production TTFB, which the local numbers say nothing useful about: they came from a laptop ~90ms from Singapore, and `iad1` was ~220ms from it. So the before figure was taken from production itself, on 2026-09-05 and still on `iad1`: `/sign-in` served a warm TTFB of **450-505ms**, and **3.08s** on a cold start. That page is the cheapest one there is, a single round trip with nobody signed in; a signed in screen makes three or four and should improve by correspondingly more.
 - **The Arcjet GOAWAY crash stops happening** (the Sentry issue reading `ConnectError: [canceled] received GOAWAY without any open streams`). Only absence proves this one, so it needs a couple of weeks of quiet rather than a single look. The fix removes most of the exposure rather than the cause, which is an unguarded `conn.destroy()` inside `@connectrpc/connect-node`; if it recurs, the note in `lib/attempt-limit.ts` says what the complete fix is and why it was not taken first.
 
 ## What this is not

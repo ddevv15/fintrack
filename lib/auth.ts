@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { createInsforgeServer } from "@/lib/insforge-server";
 
@@ -29,8 +30,21 @@ export type SignedInUser = {
  * forged or tampered access token looks like a session to the proxy and is
  * rejected here, where it turns into "nobody is signed in" rather than into a
  * page that tries to load somebody's money.
+ *
+ * Wrapped in React `cache()` for the same reason `getSettings()` is, and it is
+ * worth stating because the cost is not obvious: asking the backend who is
+ * signed in is the single most expensive call this app makes, around 330ms
+ * against a database read's 90ms, because it is an auth round trip rather than
+ * a row lookup. A signed in page used to make it twice, once through
+ * `requireUser()` in the layout and again inside `getSettings()`, which is one
+ * whole extra third of a second on every navigation for an answer the request
+ * already had. Memoised per request, so it is one call however many callers ask
+ * and every one of them sees the same answer. It is not a cross request cache:
+ * the entry dies with the render, so no session is ever visible to another.
  */
-export async function currentUser(): Promise<SignedInUser | undefined> {
+export const currentUser = cache(async function currentUser(): Promise<
+  SignedInUser | undefined
+> {
   const insforge = await createInsforgeServer();
   const { data, error } = await insforge.auth.getCurrentUser();
 
@@ -39,7 +53,7 @@ export async function currentUser(): Promise<SignedInUser | undefined> {
   identifyForMonitoring(data.user.id);
 
   return { id: data.user.id, email: data.user.email ?? "" };
-}
+});
 
 /**
  * Tell error monitoring which account this request belongs to (spec 0011 AC-8).
