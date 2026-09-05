@@ -66,45 +66,78 @@ function baseRules() {
 }
 
 /**
- * The clients, or undefined when no key is configured.
+ * The per account cap the signed in surface adds on top of the base rules.
+ *
+ * Keyed on the account and nothing else, deliberately. Adding the source to
+ * this key rather than giving it its own rule would defeat the point: the pair
+ * (source, account) hands a fresh allowance to every new source, so somebody
+ * rotating addresses could still aim an unbounded run of codes at one mailbox.
+ * Keyed on the account alone, the cap survives the rotation, and the source
+ * keyed rule in `baseRules()` still applies on top.
+ */
+function accountRule() {
+  return slidingWindow({
+    mode: "LIVE" as const,
+    interval: INTERVAL,
+    max: MAX,
+    characteristics: ["accountId"],
+  });
+}
+
+/**
+ * The client, or undefined when no key is configured.
  *
  * An absent key is treated exactly like an unreachable service, because that is
  * what it is: no protection, said out loud in the log, and the app still works.
  * It means this module can ship before the Arcjet account exists and starts
  * working the moment ARCJET_KEY appears, with no code change.
  */
-const anonymousClient = createAnonymousClient();
-const accountClient = createAccountClient();
-
-function createAnonymousClient() {
+function createClient() {
   const key = env().ARCJET_KEY;
   if (!key) return undefined;
 
   return arcjet({ key, rules: baseRules() });
 }
 
-function createAccountClient() {
-  const key = env().ARCJET_KEY;
-  if (!key) return undefined;
+let cachedClient: ReturnType<typeof createClient>;
+let clientCreated = false;
 
-  return arcjet({
-    key,
-    rules: [
-      ...baseRules(),
-      // Keyed on the account and nothing else, deliberately. Adding the source
-      // to this key rather than giving it its own rule would defeat the point:
-      // the pair (source, account) hands a fresh allowance to every new source,
-      // so somebody rotating addresses could still aim an unbounded run of
-      // codes at one mailbox. Keyed on the account alone, the cap survives the
-      // rotation, and the source keyed rule above still applies on top.
-      slidingWindow({
-        mode: "LIVE" as const,
-        interval: INTERVAL,
-        max: MAX,
-        characteristics: ["accountId"],
-      }),
-    ],
-  });
+/**
+ * The client, built on first use rather than when this module is imported.
+ *
+ * Both halves of that sentence are load bearing, and the reason is a production
+ * crash rather than tidiness. `arcjet()` builds its transport synchronously,
+ * and that transport opens a long lived HTTP/2 session to the Arcjet API
+ * immediately, holding it for 340 seconds of idle. Built at module scope, as
+ * this was, every server instance opened one the moment the chunk loaded, on
+ * every route, including the page renders that never reach an auth action and
+ * never had anything to ask.
+ *
+ * Those idle sessions are what crashed. When the far end sends a GOAWAY the
+ * session manager inside `@connectrpc/connect-node` destroys the connection
+ * with a `ConnectError`, and if that lands in the window where its own error
+ * listener has been detached, Node has an unhandled `error` event on an
+ * EventEmitter and takes the process down with it. That is an uncaught
+ * exception raised from a timer minutes after the request that opened the
+ * socket has finished, so no `try`/`catch` in `decide()` can be anywhere near
+ * it, and the fail open promise this whole module makes was quietly not true.
+ *
+ * Building on demand does not repair the upstream race. What it removes is
+ * nearly all of the exposure to it: an instance that only ever renders pages
+ * now opens no session at all, and this app's auth actions are rare.
+ *
+ * One client, not two. The account surface reaches for the same one through
+ * `withRule()`, which shares the transport rather than dialling again, so the
+ * signed in cap costs no extra connection. Arcjet's own guidance says to build
+ * one base client with as many rules as possible and add the rest per route.
+ */
+function client() {
+  if (!clientCreated) {
+    clientCreated = true;
+    cachedClient = createClient();
+  }
+
+  return cachedClient;
 }
 
 /**
@@ -134,9 +167,10 @@ const RATE_LIMIT_MESSAGE: Record<AttemptKind, string> = {
 export async function refuseIfTooManyAttempts(
   kind: AttemptKind = "password",
 ): Promise<FormState | undefined> {
-  if (!anonymousClient) return unlimited();
+  const aj = client();
+  if (!aj) return unlimited();
 
-  return decide(async () => anonymousClient.protect(await request()), kind);
+  return decide(async () => aj.protect(await request()), kind);
 }
 
 /**
@@ -149,10 +183,13 @@ export async function refuseIfTooManyAccountAttempts(
   accountId: string,
   kind: AttemptKind = "code",
 ): Promise<FormState | undefined> {
-  if (!accountClient) return unlimited();
+  const aj = client();
+  if (!aj) return unlimited();
+
+  const withAccountCap = aj.withRule(accountRule());
 
   return decide(
-    async () => accountClient.protect(await request(), { accountId }),
+    async () => withAccountCap.protect(await request(), { accountId }),
     kind,
   );
 }

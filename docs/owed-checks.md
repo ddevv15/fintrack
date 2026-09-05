@@ -35,6 +35,7 @@ merge properly._
 | A deliberate source change to force a failure | 4 | A scratch branch |
 | Test harness work | 2 | See below, both are real gaps |
 | Your go ahead, because they have side effects | 2 | A yes |
+| A production deployment | 1 | A deploy, then a fortnight of Sentry |
 
 ## 1. Waiting on a screen reader session
 
@@ -196,6 +197,13 @@ transactions` is the answer.
 
 - **The `/forgot-password` timing comparison** ([spec 0004](specs/0004-sign-in-and-your-account/verify.md)). Comparing an address that has an account against one that does not means triggering real password reset emails, and enough of them to compare timing risks tripping the attempt limiter on a live account. Worth doing: this is the step that caught a real information leak the first time it ran.
 - **Saving with the backend stopped or offline** ([spec 0006](specs/0006-log-a-spend/verify.md)), which should give an honest failure saying nothing was recorded. Needs the backend deliberately taken down.
+
+## 9. Waiting on a production deployment
+
+Checks rather than doubts: the reasoning is settled and the change is made, but
+it cannot be confirmed from a laptop.
+
+- **The Arcjet GOAWAY crash stops happening** (the Sentry issue reading `ConnectError: [canceled] received GOAWAY without any open streams`). Only absence proves this one, so it needs a couple of weeks of quiet rather than a single look. The fix removes most of the exposure rather than the cause, which is an unguarded `conn.destroy()` inside `@connectrpc/connect-node`; if it recurs, the note in `lib/attempt-limit.ts` says what the complete fix is and why it was not taken first.
 
 ## What this is not
 
