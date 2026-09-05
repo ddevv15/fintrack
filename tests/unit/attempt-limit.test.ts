@@ -71,7 +71,13 @@ function refusalMessage(state: FormState | undefined): string {
   return state && state.status === "error" ? state.message : "";
 }
 
-/** Import fresh, because the clients are built once at module load. */
+/**
+ * Import fresh, because the client is memoised after its first use.
+ *
+ * It is built on demand rather than at module load, so that one instance is
+ * reused for the life of the module; without resetting, the second test would
+ * be asking the client the first test built, under the first test's key.
+ */
 async function loadWithKey(key: string | undefined) {
   h.key = key;
   vi.resetModules();
@@ -81,7 +87,14 @@ async function loadWithKey(key: string | undefined) {
 beforeEach(() => {
   h.protect.mockReset();
   h.arcjet.mockReset();
-  h.arcjet.mockImplementation(() => ({ protect: h.protect }));
+  // `withRule()` hands back the same client, which is what the real one does:
+  // it shares the transport rather than dialling the API a second time. The
+  // signed in path goes through it, so a mock without it fails on a shape
+  // difference rather than on the branching under test.
+  h.arcjet.mockImplementation(() => {
+    const client = { protect: h.protect, withRule: () => client };
+    return client;
+  });
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -116,6 +129,48 @@ describe("with no ARCJET_KEY, the app still works", () => {
   it("never builds a client it has no key for", async () => {
     await loadWithKey(undefined);
     expect(h.arcjet).not.toHaveBeenCalled();
+  });
+});
+
+describe("the client is built on demand, and only once", () => {
+  /*
+   * A regression test for a production crash, which is the only reason these
+   * two assertions are worth their lines.
+   *
+   * `arcjet()` builds its transport synchronously, and that transport opens a
+   * long lived HTTP/2 session to the Arcjet API straight away and holds it
+   * through 340 seconds of idle. Built at module scope, as this module used to
+   * do, every server instance opened one the moment the chunk loaded, on every
+   * route, including the page renders that never reach an auth action. Those
+   * idle sessions are what crashed: when the far end sends a GOAWAY the session
+   * manager destroys the connection with an error, and landing in the window
+   * where its own listener is detached makes that an unhandled `error` event,
+   * which takes the process down. It arrives from a timer long after the
+   * request is over, so no `try`/`catch` in this file can be near it.
+   *
+   * Neither assertion is about attempt limiting, and both would look like
+   * pedantry to somebody tidying this file up. They are the two properties that
+   * keep the exposure small, and nothing else in the repository states them.
+   */
+  it("does not touch Arcjet just because the module was imported", async () => {
+    await loadWithKey("ajkey_test");
+
+    expect(h.arcjet).not.toHaveBeenCalled();
+  });
+
+  it("builds one client for both surfaces, not one each", async () => {
+    const { refuseIfTooManyAttempts, refuseIfTooManyAccountAttempts } =
+      await loadWithKey("ajkey_test");
+    h.protect.mockResolvedValue(allowed);
+
+    await refuseIfTooManyAttempts();
+    await refuseIfTooManyAccountAttempts("account-1");
+    await refuseIfTooManyAttempts();
+
+    // One client means one transport, and so one connection held open rather
+    // than a fresh one per surface or per call. The signed in surface reaches
+    // the same client through `withRule()`.
+    expect(h.arcjet).toHaveBeenCalledTimes(1);
   });
 });
 
